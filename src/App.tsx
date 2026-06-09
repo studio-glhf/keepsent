@@ -1032,9 +1032,12 @@ function App() {
   useEffect(() => {
     if (!window.location.hash || window.location.hash.startsWith('#note=')) return
     const id = window.location.hash.slice(1)
-    window.requestAnimationFrame(() => {
+    const scrollToAnchor = () => {
       document.getElementById(id)?.scrollIntoView()
-    })
+    }
+    window.requestAnimationFrame(scrollToAnchor)
+    const timeout = window.setTimeout(scrollToAnchor, 250)
+    return () => window.clearTimeout(timeout)
   }, [])
 
   useEffect(() => {

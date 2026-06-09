@@ -1,0 +1,97 @@
+name: Founding reservation
+description: Signal paid intent for a finished Keepsent product without sharing private note text.
+title: "Founding reservation: "
+labels:
+  - paid-intent
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is a public paid-intent signal, not a payment form. This GitHub issue may be indexed, copied, emailed to repo watchers, or associated with your GitHub account. Do not paste Keepsent share links because the note content is encoded in the URL. Do not include names, emails, phone numbers, addresses, private note text, medical, mental-health, legal, financial, minor-related, or recipient-identifying details. Use broad categories, such as "birthday note to a parent," not the actual story.
+  - type: dropdown
+    id: plan
+    attributes:
+      label: Which plan would you reserve?
+      options:
+        - Keepsake - $7 one private page
+        - Year - $29/year
+        - Family - $79/year
+        - I need a different plan
+    validations:
+      required: true
+  - type: dropdown
+    id: purchase-intent
+    attributes:
+      label: Purchase intent
+      options:
+        - I would pay today
+        - I would pay after privacy and checkout setup
+        - I might pay later
+        - I am only exploring
+    validations:
+      required: true
+  - type: textarea
+    id: use-case
+    attributes:
+      label: What moment would you pay for?
+      description: "Keep this broad. Example: a birthday letter to a parent, repair note after an argument, caregiver appreciation note."
+      placeholder: I would pay because...
+    validations:
+      required: true
+  - type: dropdown
+    id: urgency
+    attributes:
+      label: How soon would you use it?
+      options:
+        - Today
+        - This week
+        - This month
+        - For a future milestone
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: must-have
+    attributes:
+      label: What must be true before paying?
+      options:
+        - Stronger privacy assurances
+        - Better editing controls
+        - Hosted account or vault
+        - Stripe or normal checkout
+        - Printed keepsake option
+        - Language or localization support
+        - The current product is enough
+    validations:
+      required: true
+  - type: dropdown
+    id: trust-concern
+    attributes:
+      label: Biggest trust concern
+      options:
+        - Private notes and share links
+        - Payment safety
+        - Hosted account or vault
+        - Editing quality
+        - Family or recipient consent
+        - Public feedback process
+        - No major concern
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: github-follow-up
+    attributes:
+      label: May we follow up in GitHub comments?
+      options:
+        - Yes
+        - No
+    validations:
+      required: true
+  - type: textarea
+    id: repeat-value
+    attributes:
+      label: What would make this worth paying for again?
+      description: Optional. Keep private details out of this public issue.
+    validations:
+      required: false

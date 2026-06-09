@@ -1,0 +1,138 @@
+name: Pilot feedback
+description: Share outcome evidence from one Keepsent note without exposing private note text.
+title: "Pilot feedback: "
+labels:
+  - pilot-feedback
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing Keepsent. This is a public GitHub issue and may be indexed, copied, emailed to repo watchers, or associated with your GitHub account. Do not paste Keepsent share links because the note content is encoded in the URL. Do not include names, emails, phone numbers, addresses, private note text, medical, mental-health, legal, financial, minor-related, or recipient-identifying details. Use broad categories, such as "repair note to a sibling," not the actual story.
+  - type: dropdown
+    id: role
+    attributes:
+      label: Your role in this test
+      options:
+        - Sender
+        - Recipient
+        - Both sender and recipient
+        - Observer or helper
+    validations:
+      required: true
+  - type: dropdown
+    id: occasion
+    attributes:
+      label: What kind of note did you try?
+      options:
+        - Thank you
+        - Living tribute or milestone
+        - Encouragement
+        - Repair or apology
+        - Caregiver support
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: What happened?
+      options:
+        - I sent it
+        - I copied or saved it but have not sent it yet
+        - I printed it
+        - I made a private link
+        - I edited heavily before sending
+        - I abandoned the draft
+        - I only explored the product
+    validations:
+      required: true
+  - type: dropdown
+    id: delayed
+    attributes:
+      label: Did it help you say something you otherwise would have delayed?
+      options:
+        - Yes
+        - Maybe
+        - No
+        - I was not trying to send yet
+    validations:
+      required: true
+  - type: dropdown
+    id: felt-like-me
+    attributes:
+      label: Did the draft feel like you?
+      options:
+        - Yes, mostly
+        - Partly, after editing
+        - No, it felt generic
+        - No, it felt too intense
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: edit-burden
+    attributes:
+      label: How much editing did it need?
+      options:
+        - None
+        - Light edits
+        - Heavy edits
+        - I rewrote most of it
+        - I did not draft a note
+    validations:
+      required: true
+  - type: textarea
+    id: useful-detail
+    attributes:
+      label: What helped or hurt?
+      description: Keep this broad. Describe the workflow, prompts, tone, or decision to send. Do not include private note text.
+      placeholder: The most useful part was... The part that felt wrong was...
+    validations:
+      required: true
+  - type: dropdown
+    id: recipient-response
+    attributes:
+      label: Did the recipient respond?
+      options:
+        - Yes, meaningfully
+        - Yes, lightly
+        - Not yet
+        - I did not send it
+        - Prefer not to say
+    validations:
+      required: true
+  - type: dropdown
+    id: trust-blocker
+    attributes:
+      label: Biggest trust or usability blocker
+      options:
+        - Privacy
+        - Tone control
+        - Editing controls
+        - Reminders
+        - Export or print quality
+        - Payments
+        - Family vault
+        - Language or localization
+        - Other
+        - No major blocker
+    validations:
+      required: true
+  - type: dropdown
+    id: paid-value
+    attributes:
+      label: Would this moment have been worth $7?
+      options:
+        - Yes
+        - Maybe
+        - No
+        - I would only pay for a subscription or family vault
+    validations:
+      required: true
+  - type: textarea
+    id: trust
+    attributes:
+      label: What would make you trust Keepsent more?
+      description: Examples include privacy, editing controls, reminders, family vaults, exports, language support, or payments.
+    validations:
+      required: false

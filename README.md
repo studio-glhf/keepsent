@@ -27,6 +27,7 @@ The MVP is a browser app with no account, server, or API dependency.
 - Local feedback capture from sender or recipient
 - Copyable recipient feedback packets for no-backend pilots
 - Local paid-intent reservation capture
+- Public GitHub issue forms for pilot feedback and founding reservations
 - Company dashboard with early signal counts and data export
 
 ## Offer
@@ -77,6 +78,18 @@ Export `keepsent-company-data.json` from the Company section to review early
 signals from the current device. Until a hosted backend exists, remote recipient
 feedback must be copied back to the sender or collected in interviews.
 
+Public pilot intake lives in GitHub Issues:
+
+- Pilot feedback:
+  <https://github.com/studio-glhf/keepsent/issues/new?template=pilot-feedback.yml>
+- Founding reservation:
+  <https://github.com/studio-glhf/keepsent/issues/new?template=founding-reservation.yml>
+
+These issue forms are public by design. They ask for outcome evidence, paid
+intent, and trust gaps without asking people to paste private note text. Testers
+should not paste Keepsent share links into issues because the note content is
+encoded in the URL.
+
 ## Development
 
 Install dependencies:
@@ -108,7 +121,9 @@ npm run lint
 1. Put the MVP in front of 20 people with one real note to send this week.
 2. Ask whether it helped them say something they otherwise would not have said.
 3. Ask whether they would pay $7 for the finished keepsake page.
-4. Improve prompts only from repeated failure modes.
-5. Add Stripe Checkout for the $7 Keepsake plan.
-6. Add hosted accounts only after local share links and exports prove useful.
-7. Expand into caregiver and family memory packs once trust is earned.
+4. Collect broad, non-private evidence through the public pilot issue forms.
+5. Improve prompts only from repeated failure modes.
+6. Add Stripe Checkout for the $7 Keepsake plan after five credible paid-intent
+   reservations.
+7. Add hosted accounts only after local share links and exports prove useful.
+8. Expand into caregiver and family memory packs once trust is earned.

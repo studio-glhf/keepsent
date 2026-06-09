@@ -169,6 +169,55 @@ const sourceLinks = [
   },
 ]
 
+const issueBase = 'https://github.com/studio-glhf/keepsent/issues/new'
+const pilotFeedbackUrl = `${issueBase}?template=pilot-feedback.yml&title=${encodeURIComponent(
+  'Pilot feedback: ',
+)}`
+const foundingReservationUrl = `${issueBase}?template=founding-reservation.yml&title=${encodeURIComponent(
+  'Founding reservation: ',
+)}`
+
+const pilotSteps = [
+  {
+    title: 'Send one real note',
+    body: 'Use a moment that already matters: thanks, repair, encouragement, tribute, or care.',
+  },
+  {
+    title: 'Report the outcome',
+    body: 'Tell us whether it felt like you, whether you sent it, and whether the recipient replied.',
+  },
+  {
+    title: 'Price the value',
+    body: 'Reserve only if this specific moment would be worth paying for again.',
+  },
+]
+
+function getPilotInvite() {
+  return [
+    'I am piloting Keepsent, a private note studio for moments that deserve better than a quick text.',
+    '',
+    'The ask: write one real note you have been meaning to send, make a private keepsake link, and tell me whether it helped you say something you otherwise would have delayed.',
+    '',
+    'Try it here: https://studio-glhf.github.io/keepsent/',
+    '',
+    'Please do not share private note text or Keepsent share links in public feedback. The useful signal is whether it felt true, whether you sent it, and whether you would pay $7 for that moment.',
+  ].join('\n')
+}
+
+function getInterviewScript() {
+  return [
+    'Keepsent pilot interview',
+    '',
+    '1. What note did you choose to write, in broad terms?',
+    '2. What were you stuck on before using Keepsent?',
+    '3. Did the draft feel like you? What felt off?',
+    '4. Did you send, copy, print, or save it?',
+    '5. Did the recipient respond or did your own behavior change?',
+    '6. Would this have been worth $7 for this moment? Why or why not?',
+    '7. What would make you trust Keepsent with more family or relationship moments?',
+  ].join('\n')
+}
+
 function readStorage<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback
 
@@ -745,6 +794,7 @@ function App() {
         <nav aria-label="Primary navigation">
           <a href="#studio">Studio</a>
           <a href="#pricing">Pricing</a>
+          <a href="#pilot">Pilot</a>
           <a href="#company">Company</a>
         </nav>
       </header>
@@ -1198,6 +1248,97 @@ function App() {
             >
               <Mail size={17} />
               Save reservation
+            </button>
+          </div>
+        </section>
+
+        <section className="pilot-band" id="pilot">
+          <div className="section-heading">
+            <p className="eyebrow">
+              <MessageCircle size={16} />
+              Pilot
+            </p>
+            <h2>Help prove the company with one meaningful send</h2>
+            <p>
+              Keepsent grows only if it helps people send words they would have
+              otherwise delayed. The pilot loop asks for outcome evidence, not
+              private note text.
+            </p>
+          </div>
+
+          <div className="pilot-grid">
+            {pilotSteps.map((step, index) => (
+              <article className="pilot-card" key={step.title}>
+                <span>{index + 1}</span>
+                <h3>{step.title}</h3>
+                <p>{step.body}</p>
+              </article>
+            ))}
+          </div>
+
+          <div className="pilot-actions">
+            <article className="pilot-action-card">
+              <div>
+                <p className="eyebrow">Public feedback</p>
+                <h3>Share pilot evidence</h3>
+                <p>
+                  Opens a public GitHub pilot form. Do not paste private note
+                  text or Keepsent share links; note content is encoded in the
+                  URL. Avoid names, contact details, sensitive topics, and
+                  details about minors.
+                </p>
+              </div>
+              <a
+                className="primary-button"
+                href={pilotFeedbackUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <ExternalLink size={17} />
+                Open feedback form
+              </a>
+            </article>
+
+            <article className="pilot-action-card">
+              <div>
+                <p className="eyebrow">Paid intent</p>
+                <h3>Reserve as a founding user</h3>
+                <p>
+                  Use this only when the value is real enough that you would pay
+                  for a finished version. This is public by default and tied to
+                  GitHub platform behavior; keep details broad.
+                </p>
+              </div>
+              <a
+                className="secondary-button"
+                href={foundingReservationUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <CreditCard size={17} />
+                Open reservation form
+              </a>
+            </article>
+          </div>
+
+          <div className="pilot-copy-panel">
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => copyText(getPilotInvite(), 'Pilot invite copied')}
+            >
+              <Copy size={17} />
+              Copy pilot invite
+            </button>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() =>
+                copyText(getInterviewScript(), 'Interview script copied')
+              }
+            >
+              <FileText size={17} />
+              Copy interview script
             </button>
           </div>
         </section>

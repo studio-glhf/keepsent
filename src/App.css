@@ -189,12 +189,15 @@ button:disabled {
 .studio-band,
 .library-band,
 .pricing-band,
+.pilot-band,
 .company-band {
+  scroll-margin-top: 82px;
   padding: 76px max(24px, calc((100vw - 1180px) / 2));
   border-bottom: 1px solid var(--line);
 }
 
 .library-band,
+.pilot-band,
 .company-band {
   background: var(--surface);
 }
@@ -579,6 +582,69 @@ textarea:focus {
   justify-self: start;
 }
 
+.pilot-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.pilot-card,
+.pilot-action-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.pilot-card {
+  padding: 18px;
+}
+
+.pilot-card span {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-bottom: 14px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: white;
+  font-weight: 900;
+}
+
+.pilot-card h3,
+.pilot-action-card h3 {
+  margin: 0 0 8px;
+  color: var(--ink);
+  font-size: 1.1rem;
+}
+
+.pilot-card p,
+.pilot-action-card p {
+  color: var(--muted);
+}
+
+.pilot-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.pilot-action-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 18px;
+  align-items: center;
+  padding: 18px;
+}
+
+.pilot-copy-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
 .company-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -713,6 +779,8 @@ textarea:focus {
   .studio-grid,
   .reservation-panel,
   .source-panel,
+  .pilot-actions,
+  .pilot-action-card,
   .operating-grid {
     grid-template-columns: 1fr;
   }
@@ -722,6 +790,7 @@ textarea:focus {
   }
 
   .pricing-grid,
+  .pilot-grid,
   .note-list,
   .company-grid {
     grid-template-columns: 1fr;
@@ -783,7 +852,9 @@ textarea:focus {
   .studio-band,
   .library-band,
   .pricing-band,
+  .pilot-band,
   .company-band {
+    scroll-margin-top: 106px;
     padding: 54px 16px;
   }
 

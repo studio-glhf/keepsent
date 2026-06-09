@@ -53,6 +53,15 @@ type PublishedNote = NoteForm & {
   createdAt: string
 }
 
+type EncryptedNoteEnvelope = {
+  v: 1
+  kdf: 'PBKDF2-SHA-256'
+  iterations: number
+  salt: string
+  iv: string
+  data: string
+}
+
 type Feedback = {
   id: string
   createdAt: string
@@ -476,6 +485,26 @@ function validateReminder(value: unknown): MomentReminder | null {
   }
 }
 
+function validateEncryptedEnvelope(value: unknown): EncryptedNoteEnvelope | null {
+  if (!isRecord(value)) return null
+  if (value.v !== 1 || value.kdf !== 'PBKDF2-SHA-256') return null
+  const iterations = Number(value.iterations)
+  const salt = asString(value.salt).trim()
+  const iv = asString(value.iv).trim()
+  const data = asString(value.data).trim()
+  if (!Number.isFinite(iterations) || iterations < 100000) return null
+  if (!salt || !iv || !data) return null
+
+  return {
+    v: 1,
+    kdf: 'PBKDF2-SHA-256',
+    iterations,
+    salt,
+    iv,
+    data,
+  }
+}
+
 function readList<T>(
   key: string,
   validator: (value: unknown) => T | null,
@@ -527,14 +556,11 @@ function joinQualities(qualities: string[], language: LanguageKey) {
   return qualities.join(', ')
 }
 
-function encodeNote(note: PublishedNote) {
-  const json = JSON.stringify(note)
-  const bytes = new TextEncoder().encode(json)
+function bytesToBase64Url(bytes: Uint8Array) {
   let binary = ''
   bytes.forEach((byte) => {
     binary += String.fromCharCode(byte)
   })
-
   return window
     .btoa(binary)
     .replace(/\+/g, '-')
@@ -542,22 +568,130 @@ function encodeNote(note: PublishedNote) {
     .replace(/=+$/g, '')
 }
 
-function decodeNote(payload: string): PublishedNote | null {
+function base64UrlToBytes(payload: string) {
+  const base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = base64.padEnd(
+    base64.length + ((4 - (base64.length % 4)) % 4),
+    '=',
+  )
+  const binary = window.atob(padded)
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0))
+}
+
+function bytesToArrayBuffer(bytes: Uint8Array) {
+  const buffer = new ArrayBuffer(bytes.byteLength)
+  new Uint8Array(buffer).set(bytes)
+  return buffer
+}
+
+function encodePayload(value: unknown) {
+  return bytesToBase64Url(new TextEncoder().encode(JSON.stringify(value)))
+}
+
+function decodePayload<T>(
+  payload: string,
+  validator: (value: unknown) => T | null,
+) {
   try {
-    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=')
-    const binary = window.atob(padded)
-    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
-    return validatePublishedNote(JSON.parse(new TextDecoder().decode(bytes)))
+    return validator(JSON.parse(new TextDecoder().decode(base64UrlToBytes(payload))))
   } catch {
     return null
   }
+}
+
+function encodeNote(note: PublishedNote) {
+  return encodePayload(note)
+}
+
+function decodeNote(payload: string): PublishedNote | null {
+  return decodePayload(payload, validatePublishedNote)
+}
+
+function encodeEncryptedEnvelope(envelope: EncryptedNoteEnvelope) {
+  return encodePayload(envelope)
+}
+
+function decodeEncryptedEnvelope(payload: string) {
+  return decodePayload(payload, validateEncryptedEnvelope)
 }
 
 function getSharedNoteFromHash() {
   if (typeof window === 'undefined') return null
   if (!window.location.hash.startsWith('#note=')) return null
   return decodeNote(window.location.hash.replace('#note=', ''))
+}
+
+function getSecureEnvelopeFromHash() {
+  if (typeof window === 'undefined') return null
+  if (!window.location.hash.startsWith('#secure=')) return null
+  return decodeEncryptedEnvelope(window.location.hash.replace('#secure=', ''))
+}
+
+const secureLinkIterations = 210000
+
+async function getPassphraseKey(
+  passphrase: string,
+  salt: Uint8Array,
+  usages: KeyUsage[],
+  iterations = secureLinkIterations,
+) {
+  const keyMaterial = await window.crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(passphrase),
+    'PBKDF2',
+    false,
+    ['deriveKey'],
+  )
+
+  return window.crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: bytesToArrayBuffer(salt),
+      iterations,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    usages,
+  )
+}
+
+async function encryptNote(note: PublishedNote, passphrase: string) {
+  const salt = window.crypto.getRandomValues(new Uint8Array(16))
+  const iv = window.crypto.getRandomValues(new Uint8Array(12))
+  const key = await getPassphraseKey(passphrase, salt, ['encrypt'])
+  const encrypted = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    new TextEncoder().encode(JSON.stringify(note)),
+  )
+
+  return {
+    v: 1,
+    kdf: 'PBKDF2-SHA-256',
+    iterations: secureLinkIterations,
+    salt: bytesToBase64Url(salt),
+    iv: bytesToBase64Url(iv),
+    data: bytesToBase64Url(new Uint8Array(encrypted)),
+  } satisfies EncryptedNoteEnvelope
+}
+
+async function decryptNote(
+  envelope: EncryptedNoteEnvelope,
+  passphrase: string,
+) {
+  const salt = base64UrlToBytes(envelope.salt)
+  const iv = base64UrlToBytes(envelope.iv)
+  const key = await getPassphraseKey(passphrase, salt, ['decrypt'], envelope.iterations)
+  const decrypted = await window.crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    base64UrlToBytes(envelope.data),
+  )
+  return validatePublishedNote(
+    JSON.parse(new TextDecoder().decode(new Uint8Array(decrypted))),
+  )
 }
 
 function toLocalDateIso(date: Date) {
@@ -965,6 +1099,8 @@ function App() {
   const [sharedNote, setSharedNote] = useState<PublishedNote | null>(() =>
     getSharedNoteFromHash(),
   )
+  const [secureEnvelope, setSecureEnvelope] =
+    useState<EncryptedNoteEnvelope | null>(() => getSecureEnvelopeFromHash())
   const [publishedNote, setPublishedNote] = useState<PublishedNote | null>(
     null,
   )
@@ -986,6 +1122,13 @@ function App() {
   const [recipientReply, setRecipientReply] = useState('')
   const [recipientFeeling, setRecipientFeeling] = useState('felt personal')
   const [showReservationPrompt, setShowReservationPrompt] = useState(false)
+  const [securePassphrase, setSecurePassphrase] = useState('')
+  const [secureShareUrl, setSecureShareUrl] = useState('')
+  const [isSecuring, setIsSecuring] = useState(false)
+  const [unlockPassphrase, setUnlockPassphrase] = useState('')
+  const [unlockError, setUnlockError] = useState('')
+  const [isUnlocking, setIsUnlocking] = useState(false)
+  const [protectedSourceUrl, setProtectedSourceUrl] = useState('')
 
   const quality = useMemo(() => getQuality(form, draft), [form, draft])
   const todayIso = useMemo(() => toLocalDateIso(new Date()), [])
@@ -1024,13 +1167,24 @@ function App() {
   }, [reminders])
 
   useEffect(() => {
-    const onHashChange = () => setSharedNote(getSharedNoteFromHash())
+    const onHashChange = () => {
+      setSharedNote(getSharedNoteFromHash())
+      setSecureEnvelope(getSecureEnvelopeFromHash())
+      setUnlockError('')
+      if (window.location.hash.startsWith('#note=')) setProtectedSourceUrl('')
+    }
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
 
   useEffect(() => {
-    if (!window.location.hash || window.location.hash.startsWith('#note=')) return
+    if (
+      !window.location.hash ||
+      window.location.hash.startsWith('#note=') ||
+      window.location.hash.startsWith('#secure=')
+    ) {
+      return
+    }
     const id = window.location.hash.slice(1)
     const scrollToAnchor = () => {
       document.getElementById(id)?.scrollIntoView()
@@ -1093,6 +1247,9 @@ function App() {
     setPublishedNote(note)
     setSavedNotes((current) => [note, ...current].slice(0, 12))
     setShowReservationPrompt(false)
+    setSecurePassphrase('')
+    setSecureShareUrl('')
+    setProtectedSourceUrl('')
     setToast('Keepsake link created')
   }
 
@@ -1105,6 +1262,58 @@ function App() {
     return `${window.location.origin}${window.location.pathname}#note=${encodeNote(
       note,
     )}`
+  }
+
+  function getSecureShareUrl(envelope: EncryptedNoteEnvelope) {
+    return `${window.location.origin}${window.location.pathname}#secure=${encodeEncryptedEnvelope(
+      envelope,
+    )}`
+  }
+
+  async function createSecureShareLink(note: PublishedNote) {
+    if (securePassphrase.trim().length < 8) {
+      setToast('Use at least 8 characters')
+      return
+    }
+    if (!window.crypto?.subtle) {
+      setToast('Protected links need browser crypto support')
+      return
+    }
+
+    setIsSecuring(true)
+    try {
+      const envelope = await encryptNote(note, securePassphrase)
+      const url = getSecureShareUrl(envelope)
+      setSecureShareUrl(url)
+      try {
+        await navigator.clipboard.writeText(url)
+        setToast('Protected link copied')
+      } catch {
+        setToast('Protected link ready')
+      }
+    } catch {
+      setToast('Protected link failed')
+    } finally {
+      setIsSecuring(false)
+    }
+  }
+
+  async function unlockSecureNote() {
+    if (!secureEnvelope || !unlockPassphrase.trim()) return
+    setIsUnlocking(true)
+    setUnlockError('')
+    try {
+      const note = await decryptNote(secureEnvelope, unlockPassphrase)
+      if (!note) throw new Error('Invalid note')
+      setProtectedSourceUrl(window.location.href)
+      setSharedNote(note)
+      setSecureEnvelope(null)
+      setUnlockPassphrase('')
+    } catch {
+      setUnlockError('That passphrase did not unlock this keepsake.')
+    } finally {
+      setIsUnlocking(false)
+    }
   }
 
   function getReservationSummary(note: PublishedNote) {
@@ -1222,7 +1431,65 @@ function App() {
   function clearSharedNote() {
     window.history.replaceState(null, '', window.location.pathname)
     setSharedNote(null)
+    setSecureEnvelope(null)
     setPublishedNote(null)
+    setUnlockPassphrase('')
+    setUnlockError('')
+    setProtectedSourceUrl('')
+  }
+
+  if (secureEnvelope && !sharedNote) {
+    return (
+      <main className="shared-page">
+        <section className="shared-hero">
+          <div className="brand-mark">
+            <Heart size={18} />
+            <span>Keepsent</span>
+          </div>
+          <button className="ghost-button" type="button" onClick={clearSharedNote}>
+            <PenLine size={17} />
+            Write your own
+          </button>
+        </section>
+
+        <form
+          className="unlock-panel"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void unlockSecureNote()
+          }}
+        >
+          <p className="eyebrow">
+            <LockKeyhole size={16} />
+            Protected keepsake
+          </p>
+          <h1>Passphrase required</h1>
+          <p className="microcopy">
+            The note is encrypted in this link. The passphrase is checked on
+            this device and is not sent to Keepsent.
+          </p>
+          <label>
+            Passphrase
+            <input
+              type="password"
+              value={unlockPassphrase}
+              onChange={(event) => setUnlockPassphrase(event.target.value)}
+              autoComplete="current-password"
+            />
+          </label>
+          {unlockError && <p className="error-text">{unlockError}</p>}
+          <button
+            className="primary-button"
+            type="submit"
+            disabled={!unlockPassphrase.trim() || isUnlocking}
+          >
+            <LockKeyhole size={17} />
+            {isUnlocking ? 'Unlocking' : 'Unlock'}
+          </button>
+        </form>
+        {toast && <div className="toast">{toast}</div>}
+      </main>
+    )
   }
 
   if (sharedNote) {
@@ -1258,11 +1525,14 @@ function App() {
               type="button"
               className="icon-button"
               onClick={() =>
-                copyText(getShareUrl(sharedNote), 'Share link copied')
+                copyText(
+                  protectedSourceUrl || getShareUrl(sharedNote),
+                  protectedSourceUrl ? 'Protected link copied' : 'Share link copied',
+                )
               }
             >
               <LinkIcon size={17} />
-              Link
+              {protectedSourceUrl ? 'Protected link' : 'Link'}
             </button>
             <button
               type="button"
@@ -1702,14 +1972,68 @@ function App() {
                     >
                       Copy share link
                     </button>
-                    <button type="button" onClick={() => setSharedNote(publishedNote)}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProtectedSourceUrl('')
+                        setSharedNote(publishedNote)
+                      }}
+                    >
                       Open keepsake page
                     </button>
                     <p className="trust-receipt">
-                      This link contains the note text encoded in the URL, not
-                      encrypted. Anyone with the link can read it. Do not paste
-                      it into public feedback.
+                      Simple links are readable by anyone with the URL.
+                      Protected links encrypt the note behind a passphrase.
+                      Never paste either link into public feedback.
                     </p>
+
+                    <div className="secure-link-panel">
+                      <p className="eyebrow">
+                        <LockKeyhole size={14} />
+                        Protected link
+                      </p>
+                      <label>
+                        Passphrase
+                        <input
+                          type="password"
+                          value={securePassphrase}
+                          onChange={(event) =>
+                            setSecurePassphrase(event.target.value)
+                          }
+                          placeholder="At least 8 characters"
+                          autoComplete="new-password"
+                        />
+                      </label>
+                      <div className="button-row">
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={() => void createSecureShareLink(publishedNote)}
+                          disabled={
+                            securePassphrase.trim().length < 8 || isSecuring
+                          }
+                        >
+                          <LockKeyhole size={16} />
+                          {isSecuring ? 'Protecting' : 'Create protected link'}
+                        </button>
+                        {secureShareUrl && (
+                          <button
+                            className="secondary-button"
+                            type="button"
+                            onClick={() =>
+                              copyText(secureShareUrl, 'Protected link copied')
+                            }
+                          >
+                            <Copy size={16} />
+                            Copy protected link
+                          </button>
+                        )}
+                      </div>
+                      <p className="microcopy">
+                        Share the passphrase separately. Keepsent cannot recover
+                        it.
+                      </p>
+                    </div>
 
                     <div className="post-link-check">
                       <p>Did this help you say something you would have delayed?</p>
@@ -1841,6 +2165,7 @@ function App() {
                           '',
                           `#note=${encodeNote(note)}`,
                         )
+                        setProtectedSourceUrl('')
                         setSharedNote(note)
                       }}
                     >
@@ -2297,8 +2622,9 @@ function App() {
             <article className="operating-card">
               <h3>Trust rule</h3>
               <p>
-                Private by default, no public gallery, no training on intimate
-                notes without explicit consent.
+                Private by default, protected links for sensitive notes, no
+                public gallery, no training on intimate notes without explicit
+                consent.
               </p>
             </article>
           </div>

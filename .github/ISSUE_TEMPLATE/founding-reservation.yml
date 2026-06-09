@@ -82,6 +82,7 @@ body:
       label: What must be true before paying?
       options:
         - Stronger privacy assurances
+        - Protected share links
         - Better editing controls
         - Moment planner or reminders
         - Hosted account or vault
@@ -97,6 +98,7 @@ body:
       label: Biggest trust concern
       options:
         - Private notes and share links
+        - Protected links and passphrases
         - Payment safety
         - Hosted account or vault
         - Editing quality

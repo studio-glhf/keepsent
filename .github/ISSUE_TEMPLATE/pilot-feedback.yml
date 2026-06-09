@@ -66,6 +66,7 @@ body:
         - I copied or saved it but have not sent it yet
         - I printed it
         - I made a private link
+        - I made a protected link
         - I planned a future note
         - I edited heavily before sending
         - I abandoned the draft
@@ -133,6 +134,7 @@ body:
       label: Biggest trust or usability blocker
       options:
         - Privacy
+        - Protected link or passphrase flow
         - Tone control
         - Editing controls
         - Reminders

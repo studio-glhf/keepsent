@@ -23,7 +23,8 @@ The MVP is a browser app with no account, server, or API dependency.
 - Deterministic draft generation from the user's own details
 - Specificity score and missing-detail prompts
 - Editable keepsake draft
-- Private share link encoded in the URL
+- Private share link encoded in the URL, with optional passphrase-protected
+  encrypted links
 - Print, copy, and text export actions
 - Local saved note vault
 - Local Moment Planner for recurring meaningful-send reminders
@@ -62,6 +63,7 @@ moments where people want to be specific, private, and brave.
 ## Operating Principles
 
 - Private by default
+- Protected links for sensitive notes
 - No public gallery of intimate notes
 - No training on private notes without explicit consent
 - Specificity over polish
@@ -80,6 +82,7 @@ The app captures local pilot signals:
 - pack interest by moment type
 - planned reminders for recurring meaningful moments
 - post-link paid-value signals
+- protected-link trust signals
 - paid-intent reservations and why the product is worth paying for
 
 Export `keepsent-company-data.json` from the Company section to review early
@@ -96,7 +99,8 @@ Public pilot intake lives in GitHub Issues:
 These issue forms are public by design. They ask for outcome evidence, paid
 intent, and trust gaps without asking people to paste private note text. Testers
 should not paste Keepsent share links into issues because the note content is
-encoded in the URL.
+encoded in the URL. For sensitive notes, use a protected link and share the
+passphrase separately.
 
 ## Development
 

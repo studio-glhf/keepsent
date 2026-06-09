@@ -45,6 +45,19 @@ body:
     validations:
       required: true
   - type: dropdown
+    id: pack
+    attributes:
+      label: Did you use a Moment Pack?
+      options:
+        - No pack
+        - Caregiver Witness
+        - Mentor Thanks
+        - Repair With Dignity
+        - Living Tribute
+        - I tried more than one
+    validations:
+      required: true
+  - type: dropdown
     id: outcome
     attributes:
       label: What happened?

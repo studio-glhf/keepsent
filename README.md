@@ -19,6 +19,7 @@ The MVP is a browser app with no account, server, or API dependency.
 - Guided note composer for thanks, living tributes, encouragement, repair, and
   caregiver support
 - Local multilingual drafting in English, Spanish, Korean, and Japanese
+- Moment Packs for caregiver witness, mentor thanks, repair, and living tribute
 - Deterministic draft generation from the user's own details
 - Specificity score and missing-detail prompts
 - Editable keepsake draft
@@ -74,6 +75,7 @@ The app captures local pilot signals:
 - sender reactions such as "felt like me" or "too generic"
 - recipient reactions such as "made me reply" on the recipient's device
 - draft language and localization gaps
+- pack interest by moment type
 - paid-intent reservations and why the product is worth paying for
 
 Export `keepsent-company-data.json` from the Company section to review early
@@ -124,7 +126,7 @@ npm run lint
 2. Ask whether it helped them say something they otherwise would not have said.
 3. Ask whether they would pay $7 for the finished keepsake page.
 4. Collect broad, non-private evidence through the public pilot issue forms.
-5. Improve prompts only from repeated failure modes.
+5. Improve packs and prompts only from repeated failure modes.
 6. Add Stripe Checkout for the $7 Keepsake plan after five credible paid-intent
    reservations.
 7. Add hosted accounts only after local share links and exports prove useful.

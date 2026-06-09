@@ -68,6 +68,20 @@ type Reservation = {
   why: string
 }
 
+type MomentPack = {
+  title: string
+  label: string
+  priceSignal: string
+  occasion: OccasionKey
+  tone: ToneKey
+  audience: string
+  promise: string
+  starter: Pick<
+    NoteForm,
+    'relationship' | 'moment' | 'qualities' | 'impact' | 'hope' | 'boundary'
+  >
+}
+
 const storageKeys = {
   form: 'keepsent.form',
   draft: 'keepsent.draft',
@@ -157,6 +171,90 @@ const plans = [
     cadence: 'per year',
     audience: 'For families preserving stories together.',
     features: ['Shared vault', 'Contributor prompts', 'Family occasions'],
+  },
+]
+
+const momentPacks: MomentPack[] = [
+  {
+    title: 'Caregiver Witness',
+    label: 'Family plan preview',
+    priceSignal: '$79/year family vault',
+    occasion: 'care',
+    tone: 'tender',
+    audience: 'Families, siblings, spouses, close friends',
+    promise: 'Name invisible care without turning it into advice.',
+    starter: {
+      relationship: 'someone carrying care for our family',
+      moment:
+        'the week you handled appointments, meals, calls, and everyone else’s worry without asking to be noticed',
+      qualities: 'steadiness, patience, practical love, endurance',
+      impact: 'the rest of us had room to breathe because you kept showing up',
+      hope:
+        'I hope you know your care was seen, not only needed, and that you deserve care too',
+      boundary:
+        'I do not want praise to become another burden; I want to offer real backup too',
+    },
+  },
+  {
+    title: 'Mentor Thanks',
+    label: 'Keepsake classic',
+    priceSignal: '$7 private page',
+    occasion: 'thanks',
+    tone: 'formal',
+    audience: 'Mentors, teachers, managers, advisors',
+    promise: 'Turn vague gratitude into a concrete professional keepsake.',
+    starter: {
+      relationship: 'a mentor who changed how I see my work',
+      moment:
+        'the day you made time to explain the hard thing slowly instead of making me feel behind',
+      qualities: 'clarity, patience, standards, generosity',
+      impact:
+        'I began to expect more from myself without feeling smaller in the process',
+      hope:
+        'I hope you know that your attention became part of how I now help other people',
+      boundary: '',
+    },
+  },
+  {
+    title: 'Repair With Dignity',
+    label: 'Trust builder',
+    priceSignal: '$7 private page',
+    occasion: 'repair',
+    tone: 'plain',
+    audience: 'Partners, friends, siblings, teammates',
+    promise: 'Apologize without pressure, performance, or manipulation.',
+    starter: {
+      relationship: 'someone I hurt and still respect',
+      moment:
+        'the conversation where I protected my own discomfort instead of listening well',
+      qualities: 'honesty, patience, courage',
+      impact:
+        'I made it harder for you to feel heard, and I understand why that matters',
+      hope:
+        'I hope my next actions give you more safety than my words alone can',
+      boundary:
+        'You do not owe me a quick reply, reassurance, or forgiveness on my timeline',
+    },
+  },
+  {
+    title: 'Living Tribute',
+    label: 'Family memory pack',
+    priceSignal: '$29/year reminder loop',
+    occasion: 'tribute',
+    tone: 'tender',
+    audience: 'Parents, grandparents, elders, chosen family',
+    promise: 'Say the legacy words while the person can still receive them.',
+    starter: {
+      relationship: 'someone whose life shaped mine',
+      moment:
+        'the ordinary ritual you repeated for years that quietly taught me what love looks like',
+      qualities: 'humor, resilience, loyalty, care',
+      impact:
+        'I carry your way of loving into rooms you may never enter, and it changes how I show up',
+      hope:
+        'I hope you can hear this while it can still become part of your day',
+      boundary: '',
+    },
   },
 ]
 
@@ -815,6 +913,24 @@ function App() {
     setToast('Draft created')
   }
 
+  function loadMomentPack(pack: MomentPack) {
+    setForm((current) => ({
+      ...current,
+      occasion: pack.occasion,
+      tone: pack.tone,
+      relationship: pack.starter.relationship,
+      moment: pack.starter.moment,
+      qualities: pack.starter.qualities,
+      impact: pack.starter.impact,
+      hope: pack.starter.hope,
+      boundary: pack.starter.boundary,
+    }))
+    setDraft('')
+    window.history.replaceState(null, '', '#studio')
+    document.getElementById('studio')?.scrollIntoView()
+    setToast(`${pack.title} loaded. Replace the starter details.`)
+  }
+
   function createNote() {
     const body = draft.trim() || buildDraft(form)
     if (!draft.trim()) setDraft(body)
@@ -1040,6 +1156,7 @@ function App() {
           <span>Keepsent</span>
         </a>
         <nav aria-label="Primary navigation">
+          <a href="#packs">Packs</a>
           <a href="#studio">Studio</a>
           <a href="#pricing">Pricing</a>
           <a href="#pilot">Pilot</a>
@@ -1073,6 +1190,51 @@ function App() {
                 See the thesis
               </a>
             </div>
+          </div>
+        </section>
+
+        <section className="packs-band" id="packs">
+          <div className="section-heading">
+            <p className="eyebrow">
+              <Gift size={16} />
+              Moment packs
+            </p>
+            <h2>Digital products for moments people already care about</h2>
+            <p>
+              Each pack loads a focused starter into the studio. The starter is
+              intentionally broad; the value comes when the sender replaces it
+              with the real memory, impact, and hope.
+            </p>
+          </div>
+
+          <div className="pack-grid">
+            {momentPacks.map((pack) => (
+              <article className="pack-card" key={pack.title}>
+                <div>
+                  <p className="eyebrow">{pack.label}</p>
+                  <h3>{pack.title}</h3>
+                  <p>{pack.promise}</p>
+                </div>
+                <dl>
+                  <div>
+                    <dt>For</dt>
+                    <dd>{pack.audience}</dd>
+                  </div>
+                  <div>
+                    <dt>Signal</dt>
+                    <dd>{pack.priceSignal}</dd>
+                  </div>
+                </dl>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => loadMomentPack(pack)}
+                >
+                  <PenLine size={17} />
+                  Load starter
+                </button>
+              </article>
+            ))}
           </div>
         </section>
 

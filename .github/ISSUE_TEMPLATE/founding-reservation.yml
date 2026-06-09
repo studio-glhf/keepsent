@@ -64,6 +64,19 @@ body:
     validations:
       required: true
   - type: dropdown
+    id: pack-interest
+    attributes:
+      label: Which Moment Pack would be most valuable?
+      options:
+        - Caregiver Witness
+        - Mentor Thanks
+        - Repair With Dignity
+        - Living Tribute
+        - A different pack
+        - I do not need packs
+    validations:
+      required: true
+  - type: dropdown
     id: must-have
     attributes:
       label: What must be true before paying?

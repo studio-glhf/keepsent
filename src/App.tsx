@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   BarChart3,
+  CalendarDays,
   CheckCircle2,
   Clock,
   Copy,
@@ -28,6 +29,7 @@ import './App.css'
 type OccasionKey = 'thanks' | 'tribute' | 'encouragement' | 'repair' | 'care'
 type ToneKey = 'plain' | 'tender' | 'bright' | 'formal'
 type LanguageKey = 'en' | 'es' | 'ko' | 'ja'
+type CadenceKey = 'once' | 'yearly' | 'monthly'
 
 type NoteForm = {
   recipient: string
@@ -68,6 +70,17 @@ type Reservation = {
   why: string
 }
 
+type MomentReminder = {
+  id: string
+  createdAt: string
+  recipient: string
+  relationship: string
+  occasion: OccasionKey
+  date: string
+  cadence: CadenceKey
+  note: string
+}
+
 type MomentPack = {
   title: string
   label: string
@@ -88,6 +101,7 @@ const storageKeys = {
   notes: 'keepsent.notes',
   feedback: 'keepsent.feedback',
   reservations: 'keepsent.reservations',
+  reminders: 'keepsent.reminders',
 }
 
 const defaultForm: NoteForm = {
@@ -148,6 +162,12 @@ const languages: Record<LanguageKey, { label: string; native: string }> = {
   es: { label: 'Spanish', native: 'Español' },
   ko: { label: 'Korean', native: '한국어' },
   ja: { label: 'Japanese', native: '日本語' },
+}
+
+const cadences: Record<CadenceKey, { label: string; hint: string }> = {
+  once: { label: 'One-time', hint: 'A specific send date' },
+  yearly: { label: 'Yearly', hint: 'Birthdays, anniversaries, milestones' },
+  monthly: { label: 'Monthly', hint: 'Regular care or encouragement' },
 }
 
 const plans = [
@@ -434,6 +454,28 @@ function validateReservation(value: unknown): Reservation | null {
   }
 }
 
+function validateReminder(value: unknown): MomentReminder | null {
+  if (!isRecord(value)) return null
+  const id = asString(value.id).trim()
+  const createdAt = asString(value.createdAt).trim()
+  const recipient = asString(value.recipient).trim()
+  const date = asString(value.date).trim()
+  if (!id || !createdAt || !recipient || !date) return null
+  if (!isOccasion(value.occasion)) return null
+  if (!(asString(value.cadence) in cadences)) return null
+
+  return {
+    id,
+    createdAt,
+    recipient,
+    relationship: asString(value.relationship),
+    occasion: value.occasion,
+    date,
+    cadence: asString(value.cadence) as CadenceKey,
+    note: asString(value.note),
+  }
+}
+
 function readList<T>(
   key: string,
   validator: (value: unknown) => T | null,
@@ -516,6 +558,70 @@ function getSharedNoteFromHash() {
   if (typeof window === 'undefined') return null
   if (!window.location.hash.startsWith('#note=')) return null
   return decodeNote(window.location.hash.replace('#note=', ''))
+}
+
+function toLocalDateIso(date: Date) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+  return local.toISOString().slice(0, 10)
+}
+
+function parseLocalDate(value: string) {
+  const parts = value.split('-').map(Number)
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) {
+    return null
+  }
+  const [year, month, day] = parts
+  return new Date(year, month - 1, day)
+}
+
+function daysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate()
+}
+
+function getNextReminderDate(reminder: MomentReminder, todayIso: string) {
+  const original = parseLocalDate(reminder.date)
+  const today = parseLocalDate(todayIso)
+  if (!original || !today) return reminder.date
+  if (reminder.cadence === 'once') return reminder.date
+
+  if (reminder.cadence === 'yearly') {
+    const candidate = new Date(
+      today.getFullYear(),
+      original.getMonth(),
+      original.getDate(),
+    )
+    if (candidate < today) candidate.setFullYear(today.getFullYear() + 1)
+    return toLocalDateIso(candidate)
+  }
+
+  const candidate = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    Math.min(original.getDate(), daysInMonth(today.getFullYear(), today.getMonth())),
+  )
+  if (candidate < today) {
+    candidate.setMonth(today.getMonth() + 1)
+    candidate.setDate(
+      Math.min(
+        original.getDate(),
+        daysInMonth(candidate.getFullYear(), candidate.getMonth()),
+      ),
+    )
+  }
+  return toLocalDateIso(candidate)
+}
+
+function getReminderTiming(reminder: MomentReminder, todayIso: string) {
+  const nextDate = getNextReminderDate(reminder, todayIso)
+  const next = parseLocalDate(nextDate)
+  const today = parseLocalDate(todayIso)
+  if (!next || !today) return { nextDate, label: 'Needs a valid date', days: 9999 }
+  const days = Math.round((next.getTime() - today.getTime()) / 86400000)
+  if (days < 0) return { nextDate, label: 'Past due', days }
+  if (days === 0) return { nextDate, label: 'Due today', days }
+  if (days === 1) return { nextDate, label: 'Due tomorrow', days }
+  if (days <= 30) return { nextDate, label: `Due in ${days} days`, days }
+  return { nextDate, label: nextDate, days }
 }
 
 function buildDraft(form: NoteForm) {
@@ -853,6 +959,9 @@ function App() {
   const [reservations, setReservations] = useState<Reservation[]>(() =>
     readList(storageKeys.reservations, validateReservation),
   )
+  const [reminders, setReminders] = useState<MomentReminder[]>(() =>
+    readList(storageKeys.reminders, validateReminder),
+  )
   const [sharedNote, setSharedNote] = useState<PublishedNote | null>(() =>
     getSharedNoteFromHash(),
   )
@@ -866,10 +975,29 @@ function App() {
     email: '',
     why: '',
   })
+  const [reminderForm, setReminderForm] = useState({
+    recipient: '',
+    relationship: '',
+    occasion: 'tribute' as OccasionKey,
+    date: '',
+    cadence: 'yearly' as CadenceKey,
+    note: '',
+  })
   const [recipientReply, setRecipientReply] = useState('')
   const [recipientFeeling, setRecipientFeeling] = useState('felt personal')
+  const [showReservationPrompt, setShowReservationPrompt] = useState(false)
 
   const quality = useMemo(() => getQuality(form, draft), [form, draft])
+  const todayIso = useMemo(() => toLocalDateIso(new Date()), [])
+  const orderedReminders = useMemo(
+    () =>
+      [...reminders].sort(
+        (left, right) =>
+          getReminderTiming(left, todayIso).days -
+          getReminderTiming(right, todayIso).days,
+      ),
+    [reminders, todayIso],
+  )
 
   useEffect(() => {
     writeStorage(storageKeys.form, form)
@@ -892,9 +1020,21 @@ function App() {
   }, [reservations])
 
   useEffect(() => {
+    writeStorage(storageKeys.reminders, reminders)
+  }, [reminders])
+
+  useEffect(() => {
     const onHashChange = () => setSharedNote(getSharedNoteFromHash())
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
+
+  useEffect(() => {
+    if (!window.location.hash || window.location.hash.startsWith('#note=')) return
+    const id = window.location.hash.slice(1)
+    window.requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView()
+    })
   }, [])
 
   useEffect(() => {
@@ -948,8 +1088,8 @@ function App() {
     const payload = encodeNote(note)
     window.history.replaceState(null, '', `#note=${payload}`)
     setPublishedNote(note)
-    setSharedNote(note)
     setSavedNotes((current) => [note, ...current].slice(0, 12))
+    setShowReservationPrompt(false)
     setToast('Keepsake link created')
   }
 
@@ -962,6 +1102,17 @@ function App() {
     return `${window.location.origin}${window.location.pathname}#note=${encodeNote(
       note,
     )}`
+  }
+
+  function getReservationSummary(note: PublishedNote) {
+    return [
+      'Keepsent public-safe paid-intent summary',
+      `Moment type: ${occasions[note.occasion].label}`,
+      `Draft language: ${languages[note.language].label}`,
+      `Selected plan: ${selectedPlan}`,
+      'Private note text, names, share links, and contact details intentionally omitted.',
+      'Worth paying because: [replace with a broad, non-private reason]',
+    ].join('\n')
   }
 
   function downloadText(filename: string, content: string) {
@@ -988,6 +1139,16 @@ function App() {
     setToast('Feedback saved locally')
   }
 
+  function savePostLinkSignal(
+    note: PublishedNote,
+    label: string,
+    comment: string,
+    promptReservation = false,
+  ) {
+    saveFeedback(label, comment, note.id)
+    if (promptReservation) setShowReservationPrompt(true)
+  }
+
   function getFeedbackPacket(note: PublishedNote) {
     return [
       `Keepsent feedback for ${note.title}`,
@@ -1011,10 +1172,47 @@ function App() {
     setToast('Reservation saved locally')
   }
 
+  function saveReminder() {
+    const next: MomentReminder = {
+      id: makeId('reminder'),
+      createdAt: new Date().toISOString(),
+      ...reminderForm,
+    }
+    setReminders((current) => [next, ...current].slice(0, 30))
+    setReminderForm({
+      recipient: '',
+      relationship: '',
+      occasion: 'tribute',
+      date: '',
+      cadence: 'yearly',
+      note: '',
+    })
+    setToast('Moment planned locally')
+  }
+
+  function loadReminder(reminder: MomentReminder) {
+    setForm((current) => ({
+      ...current,
+      recipient: reminder.recipient,
+      relationship: reminder.relationship || current.relationship,
+      occasion: reminder.occasion,
+      deliveryDate: getNextReminderDate(reminder, todayIso),
+    }))
+    setDraft('')
+    window.history.replaceState(null, '', '#studio')
+    document.getElementById('studio')?.scrollIntoView()
+    setToast(`${reminder.recipient} loaded into the studio`)
+  }
+
+  function deleteReminder(id: string) {
+    setReminders((current) => current.filter((reminder) => reminder.id !== id))
+    setToast('Moment removed')
+  }
+
   function exportCompanyData() {
     downloadText(
       'keepsent-company-data.json',
-      JSON.stringify({ savedNotes, feedback, reservations }, null, 2),
+      JSON.stringify({ savedNotes, feedback, reservations, reminders }, null, 2),
     )
   }
 
@@ -1158,6 +1356,7 @@ function App() {
         <nav aria-label="Primary navigation">
           <a href="#packs">Packs</a>
           <a href="#studio">Studio</a>
+          <a href="#planner">Planner</a>
           <a href="#pricing">Pricing</a>
           <a href="#pilot">Pilot</a>
           <a href="#company">Company</a>
@@ -1490,7 +1689,7 @@ function App() {
               {publishedNote && (
                 <div className="published-panel">
                   <CheckCircle2 size={20} />
-                  <div>
+                  <div className="published-content">
                     <strong>Private keepsake ready</strong>
                     <button
                       type="button"
@@ -1500,6 +1699,94 @@ function App() {
                     >
                       Copy share link
                     </button>
+                    <button type="button" onClick={() => setSharedNote(publishedNote)}>
+                      Open keepsake page
+                    </button>
+                    <p className="trust-receipt">
+                      This link contains the note text encoded in the URL, not
+                      encrypted. Anyone with the link can read it. Do not paste
+                      it into public feedback.
+                    </p>
+
+                    <div className="post-link-check">
+                      <p>Did this help you say something you would have delayed?</p>
+                      <div className="reply-options compact">
+                        {['yes', 'maybe', 'no'].map((label) => (
+                          <button
+                            key={label}
+                            type="button"
+                            onClick={() =>
+                              savePostLinkSignal(
+                                publishedNote,
+                                `delayed-send: ${label}`,
+                                'Post-link value check',
+                              )
+                            }
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="post-link-check">
+                      <p>Would this moment have been worth $7?</p>
+                      <div className="reply-options compact">
+                        {[
+                          ['yes', true],
+                          ['maybe', true],
+                          ['no', false],
+                        ].map(([label, shouldPrompt]) => (
+                          <button
+                            key={String(label)}
+                            type="button"
+                            onClick={() =>
+                              savePostLinkSignal(
+                                publishedNote,
+                                `paid-value: ${label}`,
+                                'Post-link paid-intent check',
+                                Boolean(shouldPrompt),
+                              )
+                            }
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {showReservationPrompt && (
+                      <div className="reservation-nudge">
+                        <p>
+                          If that value is real, copy a public-safe summary and
+                          open the founding reservation form.
+                        </p>
+                        <div className="button-row">
+                          <button
+                            className="secondary-button"
+                            type="button"
+                            onClick={() =>
+                              copyText(
+                                getReservationSummary(publishedNote),
+                                'Reservation summary copied',
+                              )
+                            }
+                          >
+                            <Copy size={16} />
+                            Copy summary
+                          </button>
+                          <a
+                            className="secondary-button"
+                            href={foundingReservationUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <ExternalLink size={16} />
+                            Open form
+                          </a>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1571,6 +1858,189 @@ function App() {
                 </article>
               ))
             )}
+          </div>
+        </section>
+
+        <section className="planner-band" id="planner">
+          <div className="section-heading">
+            <p className="eyebrow">
+              <CalendarDays size={16} />
+              Moment planner
+            </p>
+            <h2>Plan the words before the moment passes</h2>
+            <p>
+              Save birthdays, repair windows, caregiver check-ins, and legacy
+              moments locally. When a reminder is close, load the studio and
+              write with context already in place.
+            </p>
+          </div>
+
+          <div className="planner-grid">
+            <form
+              className="planner-panel"
+              onSubmit={(event) => {
+                event.preventDefault()
+                saveReminder()
+              }}
+            >
+              <div className="field-row">
+                <label>
+                  Recipient or group
+                  <input
+                    value={reminderForm.recipient}
+                    onChange={(event) =>
+                      setReminderForm((current) => ({
+                        ...current,
+                        recipient: event.target.value,
+                      }))
+                    }
+                    placeholder="Mom, the care team, Jordan"
+                  />
+                </label>
+                <label>
+                  Date
+                  <input
+                    type="date"
+                    value={reminderForm.date}
+                    onChange={(event) =>
+                      setReminderForm((current) => ({
+                        ...current,
+                        date: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+              </div>
+
+              <label>
+                Relationship context
+                <input
+                  value={reminderForm.relationship}
+                  onChange={(event) =>
+                    setReminderForm((current) => ({
+                      ...current,
+                      relationship: event.target.value,
+                    }))
+                  }
+                  placeholder="my parent, our neighbor, a friend in a hard season"
+                />
+              </label>
+
+              <div className="field-row">
+                <label>
+                  Moment type
+                  <select
+                    value={reminderForm.occasion}
+                    onChange={(event) =>
+                      setReminderForm((current) => ({
+                        ...current,
+                        occasion: event.target.value as OccasionKey,
+                      }))
+                    }
+                  >
+                    {(Object.keys(occasions) as OccasionKey[]).map((key) => (
+                      <option key={key} value={key}>
+                        {occasions[key].label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Cadence
+                  <select
+                    value={reminderForm.cadence}
+                    onChange={(event) =>
+                      setReminderForm((current) => ({
+                        ...current,
+                        cadence: event.target.value as CadenceKey,
+                      }))
+                    }
+                  >
+                    {(Object.keys(cadences) as CadenceKey[]).map((key) => (
+                      <option key={key} value={key}>
+                        {cadences[key].label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <label>
+                Private prompt
+                <textarea
+                  value={reminderForm.note}
+                  onChange={(event) =>
+                    setReminderForm((current) => ({
+                      ...current,
+                      note: event.target.value,
+                    }))
+                  }
+                  placeholder="The small thing I do not want to forget to name..."
+                />
+              </label>
+
+              <button
+                className="primary-button"
+                type="submit"
+                disabled={!reminderForm.recipient.trim() || !reminderForm.date}
+              >
+                <CalendarDays size={17} />
+                Save moment
+              </button>
+            </form>
+
+            <div className="reminder-list" aria-label="Planned moments">
+              {orderedReminders.length === 0 ? (
+                <p className="empty-state">
+                  No planned moments yet. Add one date that would be painful to
+                  miss.
+                </p>
+              ) : (
+                orderedReminders.map((reminder) => {
+                  const timing = getReminderTiming(reminder, todayIso)
+                  return (
+                    <article className="reminder-card" key={reminder.id}>
+                      <div>
+                        <p className="eyebrow">
+                          {cadences[reminder.cadence].label} -{' '}
+                          {occasions[reminder.occasion].label}
+                        </p>
+                        <h3>{reminder.recipient}</h3>
+                        <p>
+                          <strong>{timing.label}</strong>
+                          {timing.nextDate !== reminder.date
+                            ? ` - next ${timing.nextDate}`
+                            : ''}
+                        </p>
+                        <p>
+                          {reminder.note ||
+                            reminder.relationship ||
+                            cadences[reminder.cadence].hint}
+                        </p>
+                      </div>
+                      <div className="note-actions">
+                        <button
+                          className="icon-button"
+                          type="button"
+                          onClick={() => loadReminder(reminder)}
+                        >
+                          <PenLine size={16} />
+                          Load studio
+                        </button>
+                        <button
+                          className="icon-button"
+                          type="button"
+                          onClick={() => deleteReminder(reminder.id)}
+                        >
+                          <Trash2 size={16} />
+                          Delete
+                        </button>
+                      </div>
+                    </article>
+                  )
+                })
+              )}
+            </div>
           </div>
         </section>
 
@@ -1795,6 +2265,10 @@ function App() {
             <article className="metric-card">
               <span>{reservations.length}</span>
               <p>paid-intent reservations</p>
+            </article>
+            <article className="metric-card">
+              <span>{reminders.length}</span>
+              <p>moments planned</p>
             </article>
           </div>
 

@@ -26,7 +26,9 @@ The MVP is a browser app with no account, server, or API dependency.
 - Private share link encoded in the URL
 - Print, copy, and text export actions
 - Local saved note vault
+- Local Moment Planner for recurring meaningful-send reminders
 - Local feedback capture from sender or recipient
+- Post-link value checks for delayed-send and paid-intent signals
 - Copyable recipient feedback packets for no-backend pilots
 - Local paid-intent reservation capture
 - Public GitHub issue forms for pilot feedback and founding reservations
@@ -76,6 +78,8 @@ The app captures local pilot signals:
 - recipient reactions such as "made me reply" on the recipient's device
 - draft language and localization gaps
 - pack interest by moment type
+- planned reminders for recurring meaningful moments
+- post-link paid-value signals
 - paid-intent reservations and why the product is worth paying for
 
 Export `keepsent-company-data.json` from the Company section to review early
@@ -126,7 +130,7 @@ npm run lint
 2. Ask whether it helped them say something they otherwise would not have said.
 3. Ask whether they would pay $7 for the finished keepsake page.
 4. Collect broad, non-private evidence through the public pilot issue forms.
-5. Improve packs and prompts only from repeated failure modes.
+5. Improve packs, reminders, and prompts only from repeated failure modes.
 6. Add Stripe Checkout for the $7 Keepsake plan after five credible paid-intent
    reservations.
 7. Add hosted accounts only after local share links and exports prove useful.

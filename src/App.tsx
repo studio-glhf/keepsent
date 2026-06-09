@@ -27,11 +27,13 @@ import './App.css'
 
 type OccasionKey = 'thanks' | 'tribute' | 'encouragement' | 'repair' | 'care'
 type ToneKey = 'plain' | 'tender' | 'bright' | 'formal'
+type LanguageKey = 'en' | 'es' | 'ko' | 'ja'
 
 type NoteForm = {
   recipient: string
   sender: string
   relationship: string
+  language: LanguageKey
   occasion: OccasionKey
   tone: ToneKey
   moment: string
@@ -78,6 +80,7 @@ const defaultForm: NoteForm = {
   recipient: '',
   sender: '',
   relationship: '',
+  language: 'en',
   occasion: 'thanks',
   tone: 'plain',
   moment: '',
@@ -124,6 +127,13 @@ const tones: Record<ToneKey, { label: string; hint: string }> = {
   tender: { label: 'Tender', hint: 'warm and vulnerable' },
   bright: { label: 'Bright', hint: 'light but sincere' },
   formal: { label: 'Formal', hint: 'polished and composed' },
+}
+
+const languages: Record<LanguageKey, { label: string; native: string }> = {
+  en: { label: 'English', native: 'English' },
+  es: { label: 'Spanish', native: 'Español' },
+  ko: { label: 'Korean', native: '한국어' },
+  ja: { label: 'Japanese', native: '日本語' },
 }
 
 const plans = [
@@ -249,6 +259,10 @@ function isTone(value: unknown): value is ToneKey {
   return typeof value === 'string' && value in tones
 }
 
+function isLanguage(value: unknown): value is LanguageKey {
+  return typeof value === 'string' && value in languages
+}
+
 function normalizeForm(value: unknown): NoteForm {
   if (!isRecord(value)) return defaultForm
 
@@ -256,6 +270,7 @@ function normalizeForm(value: unknown): NoteForm {
     recipient: asString(value.recipient),
     sender: asString(value.sender),
     relationship: asString(value.relationship),
+    language: isLanguage(value.language) ? value.language : defaultForm.language,
     occasion: isOccasion(value.occasion) ? value.occasion : defaultForm.occasion,
     tone: isTone(value.tone) ? value.tone : defaultForm.tone,
     moment: asString(value.moment),
@@ -358,6 +373,20 @@ function sentence(value: string, fallback: string) {
     : `${text}.`
 }
 
+function sentenceFor(value: string, fallback: string, language: LanguageKey) {
+  const text = compact(value, fallback)
+  if (/[.!?。？！]$/.test(text)) return text
+  return `${text}${language === 'ja' ? '。' : '.'}`
+}
+
+function joinQualities(qualities: string[], language: LanguageKey) {
+  if (qualities.length === 0) return ''
+  if (language === 'es') return qualities.join(', ')
+  if (language === 'ko') return qualities.join(', ')
+  if (language === 'ja') return qualities.join('、')
+  return qualities.join(', ')
+}
+
 function encodeNote(note: PublishedNote) {
   const json = JSON.stringify(note)
   const bytes = new TextEncoder().encode(json)
@@ -394,6 +423,225 @@ function getSharedNoteFromHash() {
 function buildDraft(form: NoteForm) {
   const recipient = compact(form.recipient, 'you')
   const sender = compact(form.sender, 'me')
+  const language = form.language
+  const qualities = splitList(form.qualities)
+
+  if (language === 'es') {
+    const relationship = compact(form.relationship, 'alguien importante para mí')
+    const moment = sentenceFor(
+      form.moment,
+      'hay un momento al que vuelvo cuando pienso en ti',
+      language,
+    )
+    const impact = sentenceFor(
+      form.impact,
+      'eso cambió la forma en que atravesé ese día',
+      language,
+    )
+    const hope = sentenceFor(
+      form.hope,
+      'espero que puedas llevar esto como prueba de que tu presencia importa',
+      language,
+    )
+    const qualityLine =
+      qualities.length > 0
+        ? `Lo que se queda conmigo es tu ${joinQualities(qualities, language)}.`
+        : 'Lo que se queda conmigo es tu manera particular de estar cuando importa.'
+    const boundary =
+      form.boundary.trim().length > 0
+        ? `También quiero respetar este límite: ${sentenceFor(form.boundary, '', language)}`
+        : form.occasion === 'repair'
+          ? 'Voy a respetar el tiempo y el espacio que necesites, incluso si eso significa esperar sin presionar.'
+          : ''
+    const toneOpeners: Record<ToneKey, string> = {
+      plain: `Para ${recipient},`,
+      tender: `Querido/a ${recipient},`,
+      bright: `${recipient},`,
+      formal: `Estimado/a ${recipient},`,
+    }
+    const toneClosers: Record<ToneKey, string> = {
+      plain: `Con cariño,\n${sender}`,
+      tender: `Con todo mi corazón,\n${sender}`,
+      bright: `Me alegra haberlo dicho,\n${sender}`,
+      formal: `Con aprecio,\n${sender}`,
+    }
+    const occasionOpeners: Record<OccasionKey, string> = {
+      thanks: `Quería darte las gracias de una forma que durara más que un mensaje rápido. Como ${relationship}, he visto cuánto de ti pones en las personas y momentos que te rodean.`,
+      tribute: `No quiero esperar a tener un discurso perfecto para decirte lo que has significado para mí. Como ${relationship}, he visto partes de tu vida que merecen ser nombradas mientras aún puedes escucharlas.`,
+      encouragement: `Sé que esta etapa te ha pedido mucho. Te escribo porque un saludo rápido no sería suficiente, y porque mereces palabras que puedan quedarse cerca cuando el día se ponga pesado.`,
+      repair: `He estado pensando en lo que pasó, y quiero escribir con cuidado en lugar de pedirte que cargues con pensamientos incompletos. No escribo para apurarte ni para dirigir tu respuesta.`,
+      care: `Veo que has estado cargando más de lo que muchas personas notan. Quería poner palabras alrededor de ese cuidado, no como consejo, sino como testimonio.`,
+    }
+    const occasionMiddle: Record<OccasionKey, string> = {
+      thanks: `El detalle que no quiero perder es este: ${moment} ${impact}`,
+      tribute: `El recuerdo que guardo es este: ${moment} ${qualityLine} ${impact}`,
+      encouragement: `Cuando pienso en lo que podría ayudarte a sentirte menos solo/a, vuelvo a esto: ${moment} ${qualityLine}`,
+      repair: `La parte que necesito asumir es esta: ${moment} ${impact}`,
+      care: `Lo que he notado es esto: ${moment} ${qualityLine}`,
+    }
+    const occasionEndings: Record<OccasionKey, string> = {
+      thanks: `${hope} Gracias por la parte de ti que hizo eso posible.`,
+      tribute: `${hope} Agradezco poder decir esto ahora, con claridad, sin esperar a que una ocasión haga todo el trabajo.`,
+      encouragement: `${hope} No tienes que representar fortaleza para que esta nota sea verdad.`,
+      repair: `${hope} Lo siento, y dejaré que mis próximas acciones pesen más que esta carta.`,
+      care: `${hope} Espero que también recibas cuidado, descanso y apoyo, no solo elogios por resistir.`,
+    }
+    return [
+      toneOpeners[form.tone],
+      occasionOpeners[form.occasion],
+      occasionMiddle[form.occasion],
+      boundary,
+      occasionEndings[form.occasion],
+      toneClosers[form.tone],
+    ]
+      .filter(Boolean)
+      .join('\n\n')
+  }
+
+  if (language === 'ko') {
+    const relationship = compact(form.relationship, '내게 중요한 사람')
+    const moment = sentenceFor(
+      form.moment,
+      '당신을 생각할 때 계속 떠오르는 한 장면이 있습니다',
+      language,
+    )
+    const impact = sentenceFor(
+      form.impact,
+      '그 일은 그날을 지나가는 제 마음을 바꾸어 주었습니다',
+      language,
+    )
+    const hope = sentenceFor(
+      form.hope,
+      '당신의 존재가 중요하다는 증거로 이 말을 간직했으면 합니다',
+      language,
+    )
+    const qualityLine =
+      qualities.length > 0
+        ? `제 마음에 남아 있는 것은 당신의 ${joinQualities(qualities, language)}입니다.`
+        : '제 마음에 남아 있는 것은 중요한 순간마다 당신이 보여 주는 고유한 방식입니다.'
+    const boundary =
+      form.boundary.trim().length > 0
+        ? `또 이 경계는 꼭 존중하고 싶습니다: ${sentenceFor(form.boundary, '', language)}`
+        : form.occasion === 'repair'
+          ? '당신에게 필요한 시간과 거리를 존중하겠습니다. 기다리는 일이 필요하다면 재촉하지 않고 기다리겠습니다.'
+          : ''
+    const toneOpeners: Record<ToneKey, string> = {
+      plain: `${recipient}에게,`,
+      tender: `소중한 ${recipient}에게,`,
+      bright: `${recipient},`,
+      formal: `${recipient}님께,`,
+    }
+    const toneClosers: Record<ToneKey, string> = {
+      plain: `마음을 담아,\n${sender}`,
+      tender: `진심을 다해,\n${sender}`,
+      bright: `이 말을 전할 수 있어 다행입니다,\n${sender}`,
+      formal: `감사의 마음을 담아,\n${sender}`,
+    }
+    const occasionOpeners: Record<OccasionKey, string> = {
+      thanks: `짧은 메시지보다 오래 남을 방식으로 고맙다는 말을 전하고 싶었습니다. ${relationship}로서, 당신이 사람들과 순간들에 얼마나 많은 마음을 쏟는지 보아 왔습니다.`,
+      tribute: `완벽한 말이 준비될 때까지 기다리지 않고, 당신이 제게 어떤 의미였는지 지금 말하고 싶습니다. ${relationship}로서, 당신이 직접 들을 수 있을 때 이름 붙여야 할 순간들을 보아 왔습니다.`,
+      encouragement: `요즘이 당신에게 많은 것을 요구하고 있다는 것을 압니다. 가벼운 안부만으로는 충분하지 않아서, 무거운 날에도 가까이 둘 수 있는 말을 남기고 싶었습니다.`,
+      repair: `그 일을 계속 생각해 왔고, 미완성된 생각을 당신에게 떠넘기기보다 조심스럽게 적고 싶었습니다. 당신의 반응을 서두르게 하거나 조종하려는 마음은 아닙니다.`,
+      care: `당신이 많은 사람이 알아차리지 못하는 무게를 지고 있다는 것을 봅니다. 조언이 아니라 증인으로서 그 돌봄에 말을 붙이고 싶었습니다.`,
+    }
+    const occasionMiddle: Record<OccasionKey, string> = {
+      thanks: `제가 잃어버리고 싶지 않은 구체적인 장면은 이것입니다: ${moment} ${impact}`,
+      tribute: `제가 간직하고 있는 기억은 이것입니다: ${moment} ${qualityLine} ${impact}`,
+      encouragement: `당신이 덜 혼자라고 느끼는 데 무엇이 도움이 될지 생각하면, 저는 이 장면으로 돌아옵니다: ${moment} ${qualityLine}`,
+      repair: `제가 책임져야 할 부분은 이것입니다: ${moment} ${impact}`,
+      care: `제가 알아차린 것은 이것입니다: ${moment} ${qualityLine}`,
+    }
+    const occasionEndings: Record<OccasionKey, string> = {
+      thanks: `${hope} 그것을 가능하게 해 준 당신의 마음에 감사합니다.`,
+      tribute: `${hope} 어떤 특별한 날이 모든 일을 대신해 주기를 기다리지 않고, 지금 분명히 말할 수 있어 감사합니다.`,
+      encouragement: `${hope} 이 말이 사실이기 위해 당신이 강한 척할 필요는 없습니다.`,
+      repair: `${hope} 미안합니다. 이 편지보다 앞으로의 행동이 더 무겁게 남도록 하겠습니다.`,
+      care: `${hope} 견뎌 냈다는 칭찬만이 아니라, 당신도 돌봄과 휴식과 도움을 받기를 바랍니다.`,
+    }
+    return [
+      toneOpeners[form.tone],
+      occasionOpeners[form.occasion],
+      occasionMiddle[form.occasion],
+      boundary,
+      occasionEndings[form.occasion],
+      toneClosers[form.tone],
+    ]
+      .filter(Boolean)
+      .join('\n\n')
+  }
+
+  if (language === 'ja') {
+    const relationship = compact(form.relationship, '私にとって大切な人')
+    const moment = sentenceFor(
+      form.moment,
+      'あなたのことを思うたびに戻ってくる場面があります',
+      language,
+    )
+    const impact = sentenceFor(
+      form.impact,
+      'そのことが、その日を進む私の気持ちを変えてくれました',
+      language,
+    )
+    const hope = sentenceFor(
+      form.hope,
+      'あなたの存在が大切だという証として、この言葉を持っていてほしいです',
+      language,
+    )
+    const qualityLine =
+      qualities.length > 0
+        ? `私の中に残っているのは、あなたの${joinQualities(qualities, language)}です。`
+        : '私の中に残っているのは、大事な場面でのあなたらしい在り方です。'
+    const boundary =
+      form.boundary.trim().length > 0
+        ? `それから、この境界も大切にしたいです。${sentenceFor(form.boundary, '', language)}`
+        : form.occasion === 'repair'
+          ? 'あなたに必要な時間と距離を尊重します。待つことが必要なら、急かさずに待ちます。'
+          : ''
+    const toneOpeners: Record<ToneKey, string> = {
+      plain: `${recipient}へ、`,
+      tender: `大切な${recipient}へ、`,
+      bright: `${recipient}へ、`,
+      formal: `${recipient}様、`,
+    }
+    const toneClosers: Record<ToneKey, string> = {
+      plain: `心を込めて、\n${sender}`,
+      tender: `心から、\n${sender}`,
+      bright: `伝えられてよかった、\n${sender}`,
+      formal: `感謝を込めて、\n${sender}`,
+    }
+    const occasionOpeners: Record<OccasionKey, string> = {
+      thanks: `短いメッセージよりも長く残る形で、ありがとうを伝えたいと思いました。${relationship}として、あなたが人や出来事にどれほど心を注いでいるかを見てきました。`,
+      tribute: `完璧な言葉がそろうまで待たずに、あなたが私にとってどんな存在だったかを今伝えたいです。${relationship}として、あなたが聞けるうちに名前をつけたい場面を見てきました。`,
+      encouragement: `今の時期があなたに多くを求めていることを知っています。軽い声かけだけでは足りない気がして、重い日にもそばに置ける言葉を残したくなりました。`,
+      repair: `あのことをずっと考えていました。未完成な思いをあなたに背負わせるのではなく、慎重に書きたいと思います。返事を急がせたり、反応を動かそうとしているわけではありません。`,
+      care: `あなたが多くの人に気づかれない重さを担っていることを見ています。助言ではなく、見ている者として、そのケアに言葉を添えたいと思いました。`,
+    }
+    const occasionMiddle: Record<OccasionKey, string> = {
+      thanks: `失いたくない具体的なことがあります。${moment} ${impact}`,
+      tribute: `私が持っている記憶はこれです。${moment} ${qualityLine} ${impact}`,
+      encouragement: `あなたが少しでも一人ではないと感じるために何が役立つかを考えると、私はこの場面に戻ります。${moment} ${qualityLine}`,
+      repair: `私が引き受けるべき部分はこれです。${moment} ${impact}`,
+      care: `私が気づいたことはこれです。${moment} ${qualityLine}`,
+    }
+    const occasionEndings: Record<OccasionKey, string> = {
+      thanks: `${hope} それを可能にしてくれたあなたの一部に、ありがとうを伝えたいです。`,
+      tribute: `${hope} 特別な日がすべてを代わりにしてくれるのを待たず、今はっきり言えることに感謝しています。`,
+      encouragement: `${hope} この言葉が本当であるために、あなたが強いふりをする必要はありません。`,
+      repair: `${hope} ごめんなさい。この手紙よりも、これからの行動に重みを持たせます。`,
+      care: `${hope} 耐えていることを褒められるだけでなく、あなた自身もケアと休息と支えを受け取れますように。`,
+    }
+    return [
+      toneOpeners[form.tone],
+      occasionOpeners[form.occasion],
+      occasionMiddle[form.occasion],
+      boundary,
+      occasionEndings[form.occasion],
+      toneClosers[form.tone],
+    ]
+      .filter(Boolean)
+      .join('\n\n')
+  }
+
   const relationship = compact(form.relationship, 'someone important to me')
   const moment = sentence(
     form.moment,
@@ -407,10 +655,9 @@ function buildDraft(form: NoteForm) {
     form.hope,
     'I hope you can carry this as proof that your presence matters',
   )
-  const qualities = splitList(form.qualities)
   const qualityLine =
     qualities.length > 0
-      ? `What stays with me is your ${qualities.join(', ')}.`
+      ? `What stays with me is your ${joinQualities(qualities, language)}.`
       : 'What stays with me is the particular way you show up when it matters.'
 
   const toneOpeners: Record<ToneKey, string> = {
@@ -458,16 +705,16 @@ function buildDraft(form: NoteForm) {
     care: `${hope} I hope you also receive care, rest, and backup, not only praise for enduring.`,
   }
 
-  const paragraphs = [
+  return [
     toneOpeners[form.tone],
     occasionOpeners[form.occasion],
     occasionMiddle[form.occasion],
     boundary,
     occasionEndings[form.occasion],
     toneClosers[form.tone],
-  ].filter(Boolean)
-
-  return paragraphs.join('\n\n')
+  ]
+    .filter(Boolean)
+    .join('\n\n')
 }
 
 function getQuality(form: NoteForm, draft: string) {
@@ -678,6 +925,7 @@ function App() {
         <article className="keepsake-sheet">
           <div className="keepsake-meta">
             <span>{occasions[sharedNote.occasion].label}</span>
+            <span>{languages[sharedNote.language].native}</span>
             <span>
               {new Intl.DateTimeFormat(undefined, {
                 month: 'short',
@@ -882,6 +1130,22 @@ function App() {
               </label>
 
               <fieldset>
+                <legend>Draft language</legend>
+                <div className="language-row">
+                  {(Object.keys(languages) as LanguageKey[]).map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      className={form.language === key ? 'selected' : ''}
+                      onClick={() => updateForm('language', key)}
+                    >
+                      <span>{languages[key].native}</span>
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+
+              <fieldset>
                 <legend>Moment</legend>
                 <div className="segment-grid">
                   {(Object.keys(occasions) as OccasionKey[]).map((key) => {
@@ -1019,6 +1283,7 @@ function App() {
               <div className="quality-strip">
                 <span>{quality.wordCount} words</span>
                 <span>{quality.missing.length} gaps</span>
+                <span>{languages[form.language].native}</span>
                 <span>{occasions[form.occasion].short}</span>
               </div>
 

@@ -33,6 +33,18 @@ body:
     validations:
       required: true
   - type: dropdown
+    id: language
+    attributes:
+      label: Draft language
+      options:
+        - English
+        - Spanish
+        - Korean
+        - Japanese
+        - I tried more than one
+    validations:
+      required: true
+  - type: dropdown
     id: outcome
     attributes:
       label: What happened?

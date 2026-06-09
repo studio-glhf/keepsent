@@ -51,6 +51,19 @@ body:
     validations:
       required: true
   - type: dropdown
+    id: language-need
+    attributes:
+      label: Which language would matter most?
+      options:
+        - English
+        - Spanish
+        - Korean
+        - Japanese
+        - Another language
+        - Language does not matter for my use case
+    validations:
+      required: true
+  - type: dropdown
     id: must-have
     attributes:
       label: What must be true before paying?

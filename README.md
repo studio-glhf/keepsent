@@ -27,6 +27,7 @@ The MVP is a browser app with no account, server, or API dependency.
   encrypted links
 - Print, copy, and text export actions
 - Local saved note vault
+- Local People Book for saved recipient context
 - Local Moment Planner for recurring meaningful-send reminders
 - Local feedback capture from sender or recipient
 - Post-link value checks for delayed-send and paid-intent signals
@@ -80,6 +81,7 @@ The app captures local pilot signals:
 - recipient reactions such as "made me reply" on the recipient's device
 - draft language and localization gaps
 - pack interest by moment type
+- saved people for repeated meaningful sends
 - planned reminders for recurring meaningful moments
 - post-link paid-value signals
 - protected-link trust signals

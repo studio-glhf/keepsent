@@ -190,6 +190,7 @@ button:disabled {
 
 .studio-band,
 .packs-band,
+.people-band,
 .library-band,
 .planner-band,
 .pricing-band,
@@ -202,6 +203,7 @@ button:disabled {
 
 .library-band,
 .packs-band,
+.people-band,
 .planner-band,
 .pilot-band,
 .company-band {
@@ -293,6 +295,7 @@ button:disabled {
 .reply-panel,
 .reservation-panel,
 .planner-panel,
+.profile-panel,
 .source-panel,
 .keepsake-sheet {
   border: 1px solid var(--line);
@@ -305,6 +308,7 @@ button:disabled {
 .draft-panel,
 .reservation-panel,
 .planner-panel,
+.profile-panel,
 .source-panel,
 .reply-panel {
   padding: 22px;
@@ -646,13 +650,23 @@ select:focus {
   align-items: start;
 }
 
+.people-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
+  gap: 18px;
+  align-items: start;
+}
+
 .planner-panel,
-.reminder-list {
+.profile-panel,
+.reminder-list,
+.profile-list {
   display: grid;
   gap: 14px;
 }
 
-.reminder-card {
+.reminder-card,
+.profile-card {
   display: grid;
   gap: 14px;
   padding: 18px;
@@ -661,13 +675,15 @@ select:focus {
   background: var(--paper);
 }
 
-.reminder-card h3 {
+.reminder-card h3,
+.profile-card h3 {
   margin: 5px 0 8px;
   color: var(--ink);
   font-size: 1.18rem;
 }
 
-.reminder-card p:not(.eyebrow) {
+.reminder-card p:not(.eyebrow),
+.profile-card p:not(.eyebrow) {
   color: var(--muted);
 }
 
@@ -805,7 +821,7 @@ select:focus {
 
 .company-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 14px;
 }
@@ -961,6 +977,7 @@ select:focus {
 
 @media (max-width: 980px) {
   .studio-grid,
+  .people-grid,
   .planner-grid,
   .reservation-panel,
   .source-panel,
@@ -1037,6 +1054,7 @@ select:focus {
 
   .studio-band,
   .packs-band,
+  .people-band,
   .library-band,
   .planner-band,
   .pricing-band,

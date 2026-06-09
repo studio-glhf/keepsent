@@ -90,6 +90,17 @@ type MomentReminder = {
   note: string
 }
 
+type RecipientProfile = {
+  id: string
+  createdAt: string
+  name: string
+  relationship: string
+  language: LanguageKey
+  tone: ToneKey
+  qualities: string
+  notes: string
+}
+
 type MomentPack = {
   title: string
   label: string
@@ -111,6 +122,7 @@ const storageKeys = {
   feedback: 'keepsent.feedback',
   reservations: 'keepsent.reservations',
   reminders: 'keepsent.reminders',
+  profiles: 'keepsent.profiles',
 }
 
 const defaultForm: NoteForm = {
@@ -482,6 +494,25 @@ function validateReminder(value: unknown): MomentReminder | null {
     date,
     cadence: asString(value.cadence) as CadenceKey,
     note: asString(value.note),
+  }
+}
+
+function validateProfile(value: unknown): RecipientProfile | null {
+  if (!isRecord(value)) return null
+  const id = asString(value.id).trim()
+  const createdAt = asString(value.createdAt).trim()
+  const name = asString(value.name).trim()
+  if (!id || !createdAt || !name) return null
+
+  return {
+    id,
+    createdAt,
+    name,
+    relationship: asString(value.relationship),
+    language: isLanguage(value.language) ? value.language : defaultForm.language,
+    tone: isTone(value.tone) ? value.tone : defaultForm.tone,
+    qualities: asString(value.qualities),
+    notes: asString(value.notes),
   }
 }
 
@@ -1096,6 +1127,9 @@ function App() {
   const [reminders, setReminders] = useState<MomentReminder[]>(() =>
     readList(storageKeys.reminders, validateReminder),
   )
+  const [profiles, setProfiles] = useState<RecipientProfile[]>(() =>
+    readList(storageKeys.profiles, validateProfile),
+  )
   const [sharedNote, setSharedNote] = useState<PublishedNote | null>(() =>
     getSharedNoteFromHash(),
   )
@@ -1118,6 +1152,14 @@ function App() {
     date: '',
     cadence: 'yearly' as CadenceKey,
     note: '',
+  })
+  const [profileForm, setProfileForm] = useState({
+    name: '',
+    relationship: '',
+    language: 'en' as LanguageKey,
+    tone: 'plain' as ToneKey,
+    qualities: '',
+    notes: '',
   })
   const [recipientReply, setRecipientReply] = useState('')
   const [recipientFeeling, setRecipientFeeling] = useState('felt personal')
@@ -1165,6 +1207,10 @@ function App() {
   useEffect(() => {
     writeStorage(storageKeys.reminders, reminders)
   }, [reminders])
+
+  useEffect(() => {
+    writeStorage(storageKeys.profiles, profiles)
+  }, [profiles])
 
   useEffect(() => {
     const onHashChange = () => {
@@ -1421,10 +1467,72 @@ function App() {
     setToast('Moment removed')
   }
 
+  function seedProfileFromStudio() {
+    setProfileForm({
+      name: form.recipient,
+      relationship: form.relationship,
+      language: form.language,
+      tone: form.tone,
+      qualities: form.qualities,
+      notes: form.boundary,
+    })
+    setToast('Studio details copied into People')
+  }
+
+  function saveProfile() {
+    const next: RecipientProfile = {
+      id: makeId('person'),
+      createdAt: new Date().toISOString(),
+      ...profileForm,
+    }
+    setProfiles((current) => [
+      next,
+      ...current.filter(
+        (profile) =>
+          profile.name.trim().toLowerCase() !==
+          next.name.trim().toLowerCase(),
+      ),
+    ].slice(0, 40))
+    setProfileForm({
+      name: '',
+      relationship: '',
+      language: 'en',
+      tone: 'plain',
+      qualities: '',
+      notes: '',
+    })
+    setToast('Person saved locally')
+  }
+
+  function loadProfile(profile: RecipientProfile) {
+    setForm((current) => ({
+      ...current,
+      recipient: profile.name,
+      relationship: profile.relationship,
+      language: profile.language,
+      tone: profile.tone,
+      qualities: profile.qualities,
+      boundary: profile.notes,
+    }))
+    setDraft('')
+    window.history.replaceState(null, '', '#studio')
+    document.getElementById('studio')?.scrollIntoView()
+    setToast(`${profile.name} loaded into the studio`)
+  }
+
+  function deleteProfile(id: string) {
+    setProfiles((current) => current.filter((profile) => profile.id !== id))
+    setToast('Person removed')
+  }
+
   function exportCompanyData() {
     downloadText(
       'keepsent-company-data.json',
-      JSON.stringify({ savedNotes, feedback, reservations, reminders }, null, 2),
+      JSON.stringify(
+        { savedNotes, feedback, reservations, reminders, profiles },
+        null,
+        2,
+      ),
     )
   }
 
@@ -1629,6 +1737,7 @@ function App() {
         <nav aria-label="Primary navigation">
           <a href="#packs">Packs</a>
           <a href="#studio">Studio</a>
+          <a href="#people">People</a>
           <a href="#planner">Planner</a>
           <a href="#pricing">Pricing</a>
           <a href="#pilot">Pilot</a>
@@ -2138,6 +2247,191 @@ function App() {
           </div>
         </section>
 
+        <section className="people-band" id="people">
+          <div className="section-heading">
+            <p className="eyebrow">
+              <Users size={16} />
+              People book
+            </p>
+            <h2>Keep context for the people you write to again</h2>
+            <p>
+              Save recipient context locally so the next birthday, repair note,
+              or care check-in starts with the relationship already remembered.
+            </p>
+          </div>
+
+          <div className="people-grid">
+            <form
+              className="profile-panel"
+              onSubmit={(event) => {
+                event.preventDefault()
+                saveProfile()
+              }}
+            >
+              <div className="field-row">
+                <label>
+                  Person or group
+                  <input
+                    value={profileForm.name}
+                    onChange={(event) =>
+                      setProfileForm((current) => ({
+                        ...current,
+                        name: event.target.value,
+                      }))
+                    }
+                    placeholder="Maya, Dad, the care team"
+                  />
+                </label>
+                <label>
+                  Relationship
+                  <input
+                    value={profileForm.relationship}
+                    onChange={(event) =>
+                      setProfileForm((current) => ({
+                        ...current,
+                        relationship: event.target.value,
+                      }))
+                    }
+                    placeholder="my mentor, our neighbor, my older sister"
+                  />
+                </label>
+              </div>
+
+              <div className="field-row">
+                <label>
+                  Default language
+                  <select
+                    value={profileForm.language}
+                    onChange={(event) =>
+                      setProfileForm((current) => ({
+                        ...current,
+                        language: event.target.value as LanguageKey,
+                      }))
+                    }
+                  >
+                    {(Object.keys(languages) as LanguageKey[]).map((key) => (
+                      <option key={key} value={key}>
+                        {languages[key].label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Default tone
+                  <select
+                    value={profileForm.tone}
+                    onChange={(event) =>
+                      setProfileForm((current) => ({
+                        ...current,
+                        tone: event.target.value as ToneKey,
+                      }))
+                    }
+                  >
+                    {(Object.keys(tones) as ToneKey[]).map((key) => (
+                      <option key={key} value={key}>
+                        {tones[key].label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <label>
+                Qualities to remember
+                <textarea
+                  value={profileForm.qualities}
+                  onChange={(event) =>
+                    setProfileForm((current) => ({
+                      ...current,
+                      qualities: event.target.value,
+                    }))
+                  }
+                  placeholder="dry humor, patience, courage, the way they notice details"
+                />
+              </label>
+
+              <label>
+                Private context
+                <textarea
+                  value={profileForm.notes}
+                  onChange={(event) =>
+                    setProfileForm((current) => ({
+                      ...current,
+                      notes: event.target.value,
+                    }))
+                  }
+                  placeholder="Boundaries, care notes, phrases to avoid, or what matters to them"
+                />
+              </label>
+
+              <div className="button-row">
+                <button
+                  className="primary-button"
+                  type="submit"
+                  disabled={!profileForm.name.trim()}
+                >
+                  <Save size={17} />
+                  Save person
+                </button>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={seedProfileFromStudio}
+                  disabled={!form.recipient.trim()}
+                >
+                  <Copy size={17} />
+                  Use studio details
+                </button>
+              </div>
+            </form>
+
+            <div className="profile-list" aria-label="Saved people">
+              {profiles.length === 0 ? (
+                <p className="empty-state">
+                  No people saved yet. Save one recipient whose future moments
+                  should not start from a blank page.
+                </p>
+              ) : (
+                profiles.map((profile) => (
+                  <article className="profile-card" key={profile.id}>
+                    <div>
+                      <p className="eyebrow">
+                        {languages[profile.language].label} -{' '}
+                        {tones[profile.tone].label}
+                      </p>
+                      <h3>{profile.name}</h3>
+                      <p>{profile.relationship || 'Relationship not set yet'}</p>
+                      <p>
+                        {profile.qualities ||
+                          profile.notes ||
+                          'Add qualities and private context as you learn what helps.'}
+                      </p>
+                    </div>
+                    <div className="note-actions">
+                      <button
+                        className="icon-button"
+                        type="button"
+                        onClick={() => loadProfile(profile)}
+                      >
+                        <PenLine size={16} />
+                        Load studio
+                      </button>
+                      <button
+                        className="icon-button"
+                        type="button"
+                        onClick={() => deleteProfile(profile.id)}
+                      >
+                        <Trash2 size={16} />
+                        Delete
+                      </button>
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
+          </div>
+        </section>
+
         <section className="library-band">
           <div className="section-heading">
             <p className="eyebrow">
@@ -2597,6 +2891,10 @@ function App() {
             <article className="metric-card">
               <span>{reminders.length}</span>
               <p>moments planned</p>
+            </article>
+            <article className="metric-card">
+              <span>{profiles.length}</span>
+              <p>people saved</p>
             </article>
           </div>
 

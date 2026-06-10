@@ -228,6 +228,19 @@ button:disabled {
   font-size: 1.04rem;
 }
 
+.section-heading .trust-note {
+  display: inline-flex;
+  width: auto;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--sage) 8%, white);
+  color: var(--sage-dark);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
 .pack-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

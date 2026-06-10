@@ -2258,6 +2258,9 @@ function App() {
               Save recipient context locally so the next birthday, repair note,
               or care check-in starts with the relationship already remembered.
             </p>
+            <p className="trust-note">
+              Saved only in this browser; export or delete anytime.
+            </p>
           </div>
 
           <div className="people-grid">

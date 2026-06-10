@@ -23,9 +23,10 @@ The MVP is a browser app with no account, server, or API dependency.
 - Deterministic draft generation from the user's own details
 - Specificity score and missing-detail prompts
 - Editable keepsake draft
+- Keepsake Finish styles for print-ready letters, cards, and tributes
 - Private share link encoded in the URL, with optional passphrase-protected
   encrypted links
-- Print, copy, and text export actions
+- Print, copy, text export, and standalone printable page export
 - Local saved note vault
 - Local People Book for saved recipient context
 - Local Moment Planner for recurring meaningful-send reminders
@@ -84,6 +85,8 @@ The app captures local pilot signals:
 - saved people for repeated meaningful sends
 - planned reminders for recurring meaningful moments
 - post-link paid-value signals
+- post-link public-safe pilot handoffs
+- keepsake finish preferences
 - protected-link trust signals
 - paid-intent reservations and why the product is worth paying for
 

@@ -118,6 +118,7 @@
 .ghost-button,
 .tone-row button,
 .segment-grid button,
+.finish-grid button,
 .reply-options button,
 .published-panel button,
 .plan-card button,
@@ -406,6 +407,7 @@ select:focus {
 }
 
 .segment-grid button,
+.finish-grid button,
 .language-row button,
 .tone-row button,
 .reply-options button {
@@ -428,6 +430,7 @@ select:focus {
 }
 
 .segment-grid button.selected,
+.finish-grid button.selected,
 .language-row button.selected,
 .tone-row button.selected,
 .reply-options button.selected,
@@ -439,10 +442,31 @@ select:focus {
 
 .tone-row,
 .language-row,
+.finish-grid,
 .reply-options {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.finish-panel {
+  gap: 10px;
+}
+
+.finish-grid button {
+  align-items: flex-start;
+  flex: 1 1 150px;
+  flex-direction: column;
+  min-height: 82px;
+  padding: 11px 12px;
+  text-align: left;
+}
+
+.finish-grid button small {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .language-row button {
@@ -565,6 +589,7 @@ select:focus {
 
 .trust-receipt,
 .post-link-check p,
+.pilot-handoff p,
 .reservation-nudge p {
   margin: 0;
   color: var(--muted);
@@ -588,6 +613,15 @@ select:focus {
   border: 1px solid color-mix(in srgb, var(--sage) 28%, var(--line));
   border-radius: 8px;
   background: color-mix(in srgb, var(--sage) 8%, white);
+}
+
+.pilot-handoff {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--terracotta) 22%, var(--line));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--terracotta) 7%, white);
 }
 
 .post-link-check {
@@ -930,6 +964,28 @@ select:focus {
 
 .keepsake-sheet {
   padding: clamp(24px, 5vw, 58px);
+}
+
+.keepsake-sheet.finish-card {
+  border-color: color-mix(in srgb, var(--terracotta) 30%, var(--line));
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.95), rgba(247, 239, 228, 0.82)),
+    var(--paper);
+}
+
+.keepsake-sheet.finish-tribute {
+  border-color: color-mix(in srgb, var(--sage) 42%, var(--line));
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.96), rgba(235, 239, 224, 0.82)),
+    var(--paper);
+}
+
+.keepsake-sheet.finish-card h1 {
+  color: var(--terracotta);
+}
+
+.keepsake-sheet.finish-tribute h1 {
+  color: var(--sage-dark);
 }
 
 .keepsake-meta {

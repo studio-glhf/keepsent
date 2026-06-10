@@ -30,6 +30,12 @@ type OccasionKey = 'thanks' | 'tribute' | 'encouragement' | 'repair' | 'care'
 type ToneKey = 'plain' | 'tender' | 'bright' | 'formal'
 type LanguageKey = 'en' | 'es' | 'ko' | 'ja'
 type CadenceKey = 'once' | 'yearly' | 'monthly'
+type FinishKey = 'letter' | 'card' | 'tribute'
+
+type KeepsakeFinish = {
+  style: FinishKey
+  heading: string
+}
 
 type NoteForm = {
   recipient: string
@@ -51,6 +57,7 @@ type PublishedNote = NoteForm & {
   body: string
   title: string
   createdAt: string
+  finish: KeepsakeFinish
 }
 
 type EncryptedNoteEnvelope = {
@@ -123,6 +130,7 @@ const storageKeys = {
   reservations: 'keepsent.reservations',
   reminders: 'keepsent.reminders',
   profiles: 'keepsent.profiles',
+  finish: 'keepsent.finish',
 }
 
 const defaultForm: NoteForm = {
@@ -189,6 +197,26 @@ const cadences: Record<CadenceKey, { label: string; hint: string }> = {
   once: { label: 'One-time', hint: 'A specific send date' },
   yearly: { label: 'Yearly', hint: 'Birthdays, anniversaries, milestones' },
   monthly: { label: 'Monthly', hint: 'Regular care or encouragement' },
+}
+
+const finishes: Record<FinishKey, { label: string; hint: string }> = {
+  letter: {
+    label: 'Letter',
+    hint: 'A quiet personal page for direct sharing or PDF print.',
+  },
+  card: {
+    label: 'Card',
+    hint: 'A warmer keepsake layout for birthdays, thanks, and encouragement.',
+  },
+  tribute: {
+    label: 'Tribute',
+    hint: 'A ceremonial page for legacy notes and family memory moments.',
+  },
+}
+
+const defaultFinish: KeepsakeFinish = {
+  style: 'letter',
+  heading: '',
 }
 
 const plans = [
@@ -402,6 +430,18 @@ function isLanguage(value: unknown): value is LanguageKey {
   return typeof value === 'string' && value in languages
 }
 
+function isFinish(value: unknown): value is FinishKey {
+  return typeof value === 'string' && value in finishes
+}
+
+function normalizeFinish(value: unknown): KeepsakeFinish {
+  if (!isRecord(value)) return defaultFinish
+  return {
+    style: isFinish(value.style) ? value.style : defaultFinish.style,
+    heading: asString(value.heading),
+  }
+}
+
 function normalizeForm(value: unknown): NoteForm {
   if (!isRecord(value)) return defaultForm
 
@@ -437,6 +477,7 @@ function validatePublishedNote(value: unknown): PublishedNote | null {
     body,
     title,
     createdAt,
+    finish: normalizeFinish(value.finish),
   }
 }
 
@@ -564,6 +605,15 @@ function splitList(value: string) {
     .split(/\n|,|;/)
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 function sentence(value: string, fallback: string) {
@@ -1115,6 +1165,9 @@ function App() {
     normalizeForm(readStorage<unknown>(storageKeys.form, defaultForm)),
   )
   const [draft, setDraft] = useState(() => readStorage(storageKeys.draft, ''))
+  const [finish, setFinish] = useState<KeepsakeFinish>(() =>
+    normalizeFinish(readStorage<unknown>(storageKeys.finish, defaultFinish)),
+  )
   const [savedNotes, setSavedNotes] = useState<PublishedNote[]>(() =>
     readList(storageKeys.notes, validatePublishedNote),
   )
@@ -1191,6 +1244,10 @@ function App() {
   useEffect(() => {
     writeStorage(storageKeys.draft, draft)
   }, [draft])
+
+  useEffect(() => {
+    writeStorage(storageKeys.finish, finish)
+  }, [finish])
 
   useEffect(() => {
     writeStorage(storageKeys.notes, savedNotes)
@@ -1286,6 +1343,7 @@ function App() {
         occasions[form.occasion].label
       }`,
       createdAt: new Date().toISOString(),
+      finish,
     }
 
     const payload = encodeNote(note)
@@ -1373,6 +1431,18 @@ function App() {
     ].join('\n')
   }
 
+  function getPilotFeedbackSummary(note: PublishedNote) {
+    return [
+      'Keepsent public-safe pilot summary',
+      `Moment type: ${occasions[note.occasion].label}`,
+      `Draft language: ${languages[note.language].label}`,
+      `Finish: ${finishes[note.finish.style].label}`,
+      'Outcome: [sent / saved / protected link / printed / still editing]',
+      'Did it help me say something I would have delayed? [yes / maybe / no]',
+      'Private note text, names, share links, and contact details intentionally omitted.',
+    ].join('\n')
+  }
+
   function downloadText(filename: string, content: string) {
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -1382,6 +1452,54 @@ function App() {
     link.click()
     URL.revokeObjectURL(url)
     setToast('Download ready')
+  }
+
+  function getKeepsakeHeading(note: PublishedNote) {
+    return compact(note.finish.heading, note.title)
+  }
+
+  function downloadKeepsakePage(note: PublishedNote) {
+    const heading = getKeepsakeHeading(note)
+    const paragraphs = note.body
+      .split(/\n\n+/)
+      .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, '<br>')}</p>`)
+      .join('\n')
+    const html = `<!doctype html>
+<html lang="${note.language}">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(heading)}</title>
+  <style>
+    body { margin: 0; background: #f7f3ea; color: #28251f; font-family: Georgia, serif; }
+    main { max-width: 780px; margin: 40px auto; padding: 56px; background: #fffdf8; border: 1px solid #d9d2c3; }
+    main.card { background: linear-gradient(180deg, #fffdf8, #f7efe4); border-color: #d9b7a8; }
+    main.tribute { background: linear-gradient(180deg, #fffdf8, #ebefe0); border-color: #aebba5; }
+    .meta { display: flex; justify-content: space-between; gap: 16px; color: #52614d; font: 700 12px system-ui; text-transform: uppercase; }
+    h1 { margin: 28px 0; font-size: 48px; line-height: 1; }
+    main.card h1 { color: #9d4f3f; }
+    main.tribute h1 { color: #52614d; }
+    p { font-size: 21px; line-height: 1.72; }
+    @media print { body { background: white; } main { margin: 0; border: 0; box-shadow: none; } }
+  </style>
+</head>
+<body>
+  <main class="${note.finish.style}">
+    <div class="meta">
+      <span>${escapeHtml(occasions[note.occasion].label)}</span>
+      <span>${escapeHtml(finishes[note.finish.style].label)}</span>
+      <span>${escapeHtml(new Intl.DateTimeFormat(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }).format(new Date(note.createdAt)))}</span>
+    </div>
+    <h1>${escapeHtml(heading)}</h1>
+    ${paragraphs}
+  </main>
+</body>
+</html>`
+    downloadText(`${heading}.html`, html)
   }
 
   function saveFeedback(label: string, comment: string, noteId = 'draft') {
@@ -1614,10 +1732,11 @@ function App() {
           </button>
         </section>
 
-        <article className="keepsake-sheet">
+        <article className={`keepsake-sheet finish-${sharedNote.finish.style}`}>
           <div className="keepsake-meta">
             <span>{occasions[sharedNote.occasion].label}</span>
             <span>{languages[sharedNote.language].native}</span>
+            <span>{finishes[sharedNote.finish.style].label}</span>
             <span>
               {new Intl.DateTimeFormat(undefined, {
                 month: 'short',
@@ -1626,7 +1745,7 @@ function App() {
               }).format(new Date(sharedNote.createdAt))}
             </span>
           </div>
-          <h1>{sharedNote.title}</h1>
+          <h1>{getKeepsakeHeading(sharedNote)}</h1>
           <pre>{sharedNote.body}</pre>
           <div className="shared-actions">
             <button
@@ -1666,7 +1785,15 @@ function App() {
               }
             >
               <Download size={17} />
-              Save
+              Text
+            </button>
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => downloadKeepsakePage(sharedNote)}
+            >
+              <FileText size={17} />
+              Page
             </button>
           </div>
         </article>
@@ -1991,10 +2118,11 @@ function App() {
                 <button
                   className="secondary-button"
                   type="button"
-                  onClick={() => {
-                    setForm(defaultForm)
-                    setDraft('')
-                  }}
+                    onClick={() => {
+                      setForm(defaultForm)
+                      setDraft('')
+                      setFinish(defaultFinish)
+                    }}
                 >
                   <Trash2 size={17} />
                   Reset
@@ -2025,20 +2153,53 @@ function App() {
 
               <div className="quality-strip">
                 <span>{quality.wordCount} words</span>
-                <span>{quality.missing.length} gaps</span>
-                <span>{languages[form.language].native}</span>
-                <span>{occasions[form.occasion].short}</span>
-              </div>
+                  <span>{quality.missing.length} gaps</span>
+                  <span>{languages[form.language].native}</span>
+                  <span>{occasions[form.occasion].short}</span>
+                  <span>{finishes[finish.style].label} finish</span>
+                </div>
 
               {quality.missing.length > 0 && (
                 <div className="gap-list">
                   {quality.missing.slice(0, 3).map((item) => (
                     <span key={item}>{item}</span>
                   ))}
-                </div>
-              )}
+                  </div>
+                )}
 
-              <div className="button-grid">
+                <fieldset className="finish-panel">
+                  <legend>Keepsake finish</legend>
+                  <div className="finish-grid">
+                    {(Object.keys(finishes) as FinishKey[]).map((key) => (
+                      <button
+                        key={key}
+                        type="button"
+                        className={finish.style === key ? 'selected' : ''}
+                        onClick={() =>
+                          setFinish((current) => ({ ...current, style: key }))
+                        }
+                      >
+                        <span>{finishes[key].label}</span>
+                        <small>{finishes[key].hint}</small>
+                      </button>
+                    ))}
+                  </div>
+                  <label>
+                    Keepsake heading
+                    <input
+                      value={finish.heading}
+                      onChange={(event) =>
+                        setFinish((current) => ({
+                          ...current,
+                          heading: event.target.value,
+                        }))
+                      }
+                      placeholder="Optional title for the finished page"
+                    />
+                  </label>
+                </fieldset>
+
+                <div className="button-grid">
                 <button className="primary-button" type="button" onClick={createNote}>
                   <LinkIcon size={17} />
                   Make link
@@ -2142,9 +2303,53 @@ function App() {
                         Share the passphrase separately. Keepsent cannot recover
                         it.
                       </p>
+                      </div>
+
+                    <div className="pilot-handoff">
+                      <p className="eyebrow">
+                        <MessageCircle size={14} />
+                        Report this send
+                      </p>
+                      <p>
+                        Share outcome evidence without note text, names, or
+                        links.
+                      </p>
+                      <div className="button-row">
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={() =>
+                            copyText(
+                              getPilotFeedbackSummary(publishedNote),
+                              'Pilot summary copied',
+                            )
+                          }
+                        >
+                          <Copy size={16} />
+                          Copy summary
+                        </button>
+                        <a
+                          className="secondary-button"
+                          href={pilotFeedbackUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <ExternalLink size={16} />
+                          Open feedback form
+                        </a>
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={seedProfileFromStudio}
+                          disabled={!form.recipient.trim()}
+                        >
+                          <Users size={16} />
+                          Save this person
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="post-link-check">
+                      <div className="post-link-check">
                       <p>Did this help you say something you would have delayed?</p>
                       <div className="reply-options compact">
                         {['yes', 'maybe', 'no'].map((label) => (

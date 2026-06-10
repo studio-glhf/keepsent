@@ -310,6 +310,7 @@ button:disabled {
 .reservation-panel,
 .planner-panel,
 .profile-panel,
+.outreach-form,
 .source-panel,
 .keepsake-sheet {
   border: 1px solid var(--line);
@@ -323,6 +324,7 @@ button:disabled {
 .reservation-panel,
 .planner-panel,
 .profile-panel,
+.outreach-form,
 .source-panel,
 .reply-panel {
   padding: 22px;
@@ -331,6 +333,11 @@ button:disabled {
 .composer-panel {
   display: grid;
   gap: 16px;
+}
+
+.outreach-form {
+  display: grid;
+  gap: 14px;
 }
 
 .field-row {
@@ -588,7 +595,6 @@ select:focus {
 }
 
 .trust-receipt,
-.post-link-check p,
 .pilot-handoff p,
 .reservation-nudge p {
   margin: 0;
@@ -622,11 +628,6 @@ select:focus {
   border: 1px solid color-mix(in srgb, var(--terracotta) 22%, var(--line));
   border-radius: 8px;
   background: color-mix(in srgb, var(--terracotta) 7%, white);
-}
-
-.post-link-check {
-  display: grid;
-  gap: 7px;
 }
 
 .reservation-nudge {
@@ -866,9 +867,92 @@ select:focus {
   margin-top: 18px;
 }
 
+.outreach-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.8fr);
+  gap: 18px;
+  align-items: end;
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.outreach-header h3 {
+  margin: 6px 0 8px;
+  color: var(--ink);
+  font-size: 1.38rem;
+}
+
+.outreach-header p:not(.eyebrow) {
+  max-width: 700px;
+  color: var(--muted);
+}
+
+.outreach-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.outreach-metrics span {
+  display: grid;
+  gap: 3px;
+  min-height: 74px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.outreach-metrics strong {
+  color: var(--ink);
+  font-size: 1.62rem;
+  line-height: 1;
+}
+
+.outreach-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
+  gap: 18px;
+  align-items: start;
+  margin-top: 18px;
+}
+
+.outreach-list {
+  display: grid;
+  gap: 14px;
+}
+
+.outreach-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.outreach-card h3 {
+  margin: 5px 0 8px;
+  color: var(--ink);
+  font-size: 1.18rem;
+}
+
+.outreach-card p:not(.eyebrow) {
+  color: var(--muted);
+}
+
+.status-row button {
+  flex: 1 1 96px;
+}
+
 .company-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 14px;
 }
@@ -892,7 +976,7 @@ select:focus {
 
 .operating-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -1048,6 +1132,8 @@ select:focus {
   .studio-grid,
   .people-grid,
   .planner-grid,
+  .outreach-header,
+  .outreach-grid,
   .reservation-panel,
   .source-panel,
   .pilot-actions,
@@ -1064,7 +1150,8 @@ select:focus {
   .pack-grid,
   .pilot-grid,
   .note-list,
-  .company-grid {
+  .company-grid,
+  .outreach-metrics {
     grid-template-columns: 1fr;
   }
 

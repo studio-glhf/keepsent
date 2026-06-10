@@ -31,6 +31,7 @@ type ToneKey = 'plain' | 'tender' | 'bright' | 'formal'
 type LanguageKey = 'en' | 'es' | 'ko' | 'ja'
 type CadenceKey = 'once' | 'yearly' | 'monthly'
 type FinishKey = 'letter' | 'card' | 'tribute'
+type OutreachStatus = 'candidate' | 'invited' | 'trying' | 'used' | 'reserved'
 
 type KeepsakeFinish = {
   style: FinishKey
@@ -108,6 +109,17 @@ type RecipientProfile = {
   notes: string
 }
 
+type OutreachContact = {
+  id: string
+  createdAt: string
+  name: string
+  channel: string
+  relationship: string
+  moment: string
+  status: OutreachStatus
+  notes: string
+}
+
 type MomentPack = {
   title: string
   label: string
@@ -131,6 +143,7 @@ const storageKeys = {
   reminders: 'keepsent.reminders',
   profiles: 'keepsent.profiles',
   finish: 'keepsent.finish',
+  outreach: 'keepsent.outreach',
 }
 
 const defaultForm: NoteForm = {
@@ -197,6 +210,32 @@ const cadences: Record<CadenceKey, { label: string; hint: string }> = {
   once: { label: 'One-time', hint: 'A specific send date' },
   yearly: { label: 'Yearly', hint: 'Birthdays, anniversaries, milestones' },
   monthly: { label: 'Monthly', hint: 'Regular care or encouragement' },
+}
+
+const outreachStatuses: Record<
+  OutreachStatus,
+  { label: string; hint: string }
+> = {
+  candidate: {
+    label: 'Candidate',
+    hint: 'Could use Keepsent for a real note soon.',
+  },
+  invited: {
+    label: 'Invited',
+    hint: 'Received a personal pilot ask.',
+  },
+  trying: {
+    label: 'Trying',
+    hint: 'Started a note or asked for help.',
+  },
+  used: {
+    label: 'Used',
+    hint: 'Created, sent, printed, or saved a keepsake.',
+  },
+  reserved: {
+    label: 'Reserved',
+    hint: 'Gave credible paid-intent signal.',
+  },
 }
 
 const finishes: Record<FinishKey, { label: string; hint: string }> = {
@@ -381,6 +420,39 @@ function getPilotInvite() {
   ].join('\n')
 }
 
+function getProductUrl() {
+  if (typeof window === 'undefined') return 'https://studio-glhf.github.io/keepsent/'
+  return `${window.location.origin}${window.location.pathname}`
+}
+
+function getOutreachInvite(contact: OutreachContact) {
+  const greeting = contact.name.trim() ? `Hi ${contact.name.trim()},` : 'Hi,'
+  const momentLine = contact.moment.trim()
+    ? `I thought of you because you mentioned or may have a moment like this: ${contact.moment.trim()}.`
+    : 'I thought of you because you may have one real note you have been meaning to send.'
+  const relationshipLine = contact.relationship.trim()
+    ? `The broad context I had in mind: ${contact.relationship.trim()}.`
+    : ''
+
+  return [
+    greeting,
+    '',
+    'I am piloting Keepsent, a private note studio for meaningful notes people keep delaying.',
+    momentLine,
+    relationshipLine,
+    '',
+    'The ask is small: use it for one real note, make a keepsake link or printable page if it helps, then tell me whether it helped you say something you otherwise would have put off.',
+    '',
+    `Try it here: ${getProductUrl()}`,
+    '',
+    'Please do not send me private note text or public share links. The useful signal is whether it felt true, whether you sent/saved/printed it, and whether that moment would have been worth $7.',
+    '',
+    `Public feedback form: ${pilotFeedbackUrl}`,
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
 function getInterviewScript() {
   return [
     'Keepsent pilot interview',
@@ -432,6 +504,10 @@ function isLanguage(value: unknown): value is LanguageKey {
 
 function isFinish(value: unknown): value is FinishKey {
   return typeof value === 'string' && value in finishes
+}
+
+function isOutreachStatus(value: unknown): value is OutreachStatus {
+  return typeof value === 'string' && value in outreachStatuses
 }
 
 function normalizeFinish(value: unknown): KeepsakeFinish {
@@ -553,6 +629,25 @@ function validateProfile(value: unknown): RecipientProfile | null {
     language: isLanguage(value.language) ? value.language : defaultForm.language,
     tone: isTone(value.tone) ? value.tone : defaultForm.tone,
     qualities: asString(value.qualities),
+    notes: asString(value.notes),
+  }
+}
+
+function validateOutreachContact(value: unknown): OutreachContact | null {
+  if (!isRecord(value)) return null
+  const id = asString(value.id).trim()
+  const createdAt = asString(value.createdAt).trim()
+  const name = asString(value.name).trim()
+  if (!id || !createdAt || !name) return null
+
+  return {
+    id,
+    createdAt,
+    name,
+    channel: asString(value.channel),
+    relationship: asString(value.relationship),
+    moment: asString(value.moment),
+    status: isOutreachStatus(value.status) ? value.status : 'candidate',
     notes: asString(value.notes),
   }
 }
@@ -1183,6 +1278,9 @@ function App() {
   const [profiles, setProfiles] = useState<RecipientProfile[]>(() =>
     readList(storageKeys.profiles, validateProfile),
   )
+  const [outreachContacts, setOutreachContacts] = useState<OutreachContact[]>(
+    () => readList(storageKeys.outreach, validateOutreachContact),
+  )
   const [sharedNote, setSharedNote] = useState<PublishedNote | null>(() =>
     getSharedNoteFromHash(),
   )
@@ -1214,8 +1312,22 @@ function App() {
     qualities: '',
     notes: '',
   })
+  const [outreachForm, setOutreachForm] = useState({
+    name: '',
+    channel: '',
+    relationship: '',
+    moment: '',
+    status: 'candidate' as OutreachStatus,
+    notes: '',
+  })
   const [recipientReply, setRecipientReply] = useState('')
   const [recipientFeeling, setRecipientFeeling] = useState('felt personal')
+  const [pilotEvidenceForm, setPilotEvidenceForm] = useState({
+    outcome: 'sent',
+    delayed: 'yes',
+    paidValue: 'maybe',
+    trustGap: '',
+  })
   const [showReservationPrompt, setShowReservationPrompt] = useState(false)
   const [securePassphrase, setSecurePassphrase] = useState('')
   const [secureShareUrl, setSecureShareUrl] = useState('')
@@ -1236,6 +1348,31 @@ function App() {
       ),
     [reminders, todayIso],
   )
+  const outreachMetrics = useMemo(() => {
+    const byStatus = Object.fromEntries(
+      (Object.keys(outreachStatuses) as OutreachStatus[]).map((status) => [
+        status,
+        0,
+      ]),
+    ) as Record<OutreachStatus, number>
+
+    outreachContacts.forEach((contact) => {
+      byStatus[contact.status] += 1
+    })
+
+    const reached =
+      byStatus.invited + byStatus.trying + byStatus.used + byStatus.reserved
+    const crediblePilots = byStatus.used + byStatus.reserved
+    const target = 20
+
+    return {
+      byStatus,
+      reached,
+      crediblePilots,
+      target,
+      remaining: Math.max(0, target - outreachContacts.length),
+    }
+  }, [outreachContacts])
 
   useEffect(() => {
     writeStorage(storageKeys.form, form)
@@ -1268,6 +1405,10 @@ function App() {
   useEffect(() => {
     writeStorage(storageKeys.profiles, profiles)
   }, [profiles])
+
+  useEffect(() => {
+    writeStorage(storageKeys.outreach, outreachContacts)
+  }, [outreachContacts])
 
   useEffect(() => {
     const onHashChange = () => {
@@ -1354,6 +1495,12 @@ function App() {
     setSecurePassphrase('')
     setSecureShareUrl('')
     setProtectedSourceUrl('')
+    setPilotEvidenceForm({
+      outcome: 'sent',
+      delayed: 'yes',
+      paidValue: 'maybe',
+      trustGap: '',
+    })
     setToast('Keepsake link created')
   }
 
@@ -1437,10 +1584,16 @@ function App() {
       `Moment type: ${occasions[note.occasion].label}`,
       `Draft language: ${languages[note.language].label}`,
       `Finish: ${finishes[note.finish.style].label}`,
-      'Outcome: [sent / saved / protected link / printed / still editing]',
-      'Did it help me say something I would have delayed? [yes / maybe / no]',
+      `Outcome: ${pilotEvidenceForm.outcome}`,
+      `Did it help me say something I would have delayed? ${pilotEvidenceForm.delayed}`,
+      `Would this moment have been worth $7? ${pilotEvidenceForm.paidValue}`,
+      pilotEvidenceForm.trustGap.trim()
+        ? `Trust gap or improvement: ${pilotEvidenceForm.trustGap.trim()}`
+        : '',
       'Private note text, names, share links, and contact details intentionally omitted.',
-    ].join('\n')
+    ]
+      .filter(Boolean)
+      .join('\n')
   }
 
   function downloadText(filename: string, content: string) {
@@ -1515,14 +1668,21 @@ function App() {
     setToast('Feedback saved locally')
   }
 
-  function savePostLinkSignal(
-    note: PublishedNote,
-    label: string,
-    comment: string,
-    promptReservation = false,
-  ) {
-    saveFeedback(label, comment, note.id)
-    if (promptReservation) setShowReservationPrompt(true)
+  function savePilotEvidence(note: PublishedNote) {
+    saveFeedback(
+      `pilot-evidence: ${pilotEvidenceForm.outcome}`,
+      [
+        `Delayed-send help: ${pilotEvidenceForm.delayed}`,
+        `Worth $7: ${pilotEvidenceForm.paidValue}`,
+        pilotEvidenceForm.trustGap.trim()
+          ? `Trust gap: ${pilotEvidenceForm.trustGap.trim()}`
+          : '',
+      ]
+        .filter(Boolean)
+        .join('\n'),
+      note.id,
+    )
+    if (pilotEvidenceForm.paidValue !== 'no') setShowReservationPrompt(true)
   }
 
   function getFeedbackPacket(note: PublishedNote) {
@@ -1546,6 +1706,48 @@ function App() {
     setReservations((current) => [next, ...current])
     setReservationForm({ name: '', email: '', why: '' })
     setToast('Reservation saved locally')
+  }
+
+  function saveOutreachContact() {
+    const next: OutreachContact = {
+      id: makeId('pilot'),
+      createdAt: new Date().toISOString(),
+      ...outreachForm,
+      name: outreachForm.name.trim(),
+    }
+    setOutreachContacts((current) => [
+      next,
+      ...current.filter(
+        (contact) =>
+          contact.name.trim().toLowerCase() !==
+          next.name.trim().toLowerCase(),
+      ),
+    ].slice(0, 60))
+    setOutreachForm({
+      name: '',
+      channel: '',
+      relationship: '',
+      moment: '',
+      status: 'candidate',
+      notes: '',
+    })
+    setToast('Pilot target saved locally')
+  }
+
+  function updateOutreachStatus(id: string, status: OutreachStatus) {
+    setOutreachContacts((current) =>
+      current.map((contact) =>
+        contact.id === id ? { ...contact, status } : contact,
+      ),
+    )
+    setToast(`${outreachStatuses[status].label} saved`)
+  }
+
+  function deleteOutreachContact(id: string) {
+    setOutreachContacts((current) =>
+      current.filter((contact) => contact.id !== id),
+    )
+    setToast('Pilot target removed')
   }
 
   function saveReminder() {
@@ -1647,7 +1849,14 @@ function App() {
     downloadText(
       'keepsent-company-data.json',
       JSON.stringify(
-        { savedNotes, feedback, reservations, reminders, profiles },
+        {
+          savedNotes,
+          feedback,
+          reservations,
+          reminders,
+          profiles,
+          outreachSummary: outreachMetrics,
+        },
         null,
         2,
       ),
@@ -2311,10 +2520,99 @@ function App() {
                         Report this send
                       </p>
                       <p>
-                        Share outcome evidence without note text, names, or
-                        links.
+                        Prepare public-safe evidence before opening GitHub. Do
+                        not include note text, names, links, or contact details.
                       </p>
+                      <div className="field-row">
+                        <label>
+                          Outcome
+                          <select
+                            value={pilotEvidenceForm.outcome}
+                            onChange={(event) =>
+                              setPilotEvidenceForm((current) => ({
+                                ...current,
+                                outcome: event.target.value,
+                              }))
+                            }
+                          >
+                            {[
+                              'sent',
+                              'saved',
+                              'protected link',
+                              'printed',
+                              'still editing',
+                            ].map((outcome) => (
+                              <option key={outcome} value={outcome}>
+                                {outcome}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label>
+                          Worth $7?
+                          <select
+                            value={pilotEvidenceForm.paidValue}
+                            onChange={(event) =>
+                              setPilotEvidenceForm((current) => ({
+                                ...current,
+                                paidValue: event.target.value,
+                              }))
+                            }
+                          >
+                            {['yes', 'maybe', 'no'].map((value) => (
+                              <option key={value} value={value}>
+                                {value}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <fieldset>
+                        <legend>Helped with a delayed send?</legend>
+                        <div className="reply-options compact">
+                          {['yes', 'maybe', 'no'].map((value) => (
+                            <button
+                              key={value}
+                              className={
+                                pilotEvidenceForm.delayed === value
+                                  ? 'selected'
+                                  : ''
+                              }
+                              type="button"
+                              onClick={() =>
+                                setPilotEvidenceForm((current) => ({
+                                  ...current,
+                                  delayed: value,
+                                }))
+                              }
+                            >
+                              {value}
+                            </button>
+                          ))}
+                        </div>
+                      </fieldset>
+                      <label>
+                        Trust gap or improvement
+                        <textarea
+                          value={pilotEvidenceForm.trustGap}
+                          onChange={(event) =>
+                            setPilotEvidenceForm((current) => ({
+                              ...current,
+                              trustGap: event.target.value,
+                            }))
+                          }
+                          placeholder="Broad, public-safe feedback only"
+                        />
+                      </label>
                       <div className="button-row">
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={() => savePilotEvidence(publishedNote)}
+                        >
+                          <Save size={16} />
+                          Save evidence
+                        </button>
                         <button
                           className="secondary-button"
                           type="button"
@@ -2326,7 +2624,7 @@ function App() {
                           }
                         >
                           <Copy size={16} />
-                          Copy summary
+                          Copy evidence
                         </button>
                         <a
                           className="secondary-button"
@@ -2346,53 +2644,6 @@ function App() {
                           <Users size={16} />
                           Save this person
                         </button>
-                      </div>
-                    </div>
-
-                      <div className="post-link-check">
-                      <p>Did this help you say something you would have delayed?</p>
-                      <div className="reply-options compact">
-                        {['yes', 'maybe', 'no'].map((label) => (
-                          <button
-                            key={label}
-                            type="button"
-                            onClick={() =>
-                              savePostLinkSignal(
-                                publishedNote,
-                                `delayed-send: ${label}`,
-                                'Post-link value check',
-                              )
-                            }
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="post-link-check">
-                      <p>Would this moment have been worth $7?</p>
-                      <div className="reply-options compact">
-                        {[
-                          ['yes', true],
-                          ['maybe', true],
-                          ['no', false],
-                        ].map(([label, shouldPrompt]) => (
-                          <button
-                            key={String(label)}
-                            type="button"
-                            onClick={() =>
-                              savePostLinkSignal(
-                                publishedNote,
-                                `paid-value: ${label}`,
-                                'Post-link paid-intent check',
-                                Boolean(shouldPrompt),
-                              )
-                            }
-                          >
-                            {label}
-                          </button>
-                        ))}
                       </div>
                     </div>
 
@@ -3068,6 +3319,216 @@ function App() {
               Copy interview script
             </button>
           </div>
+
+          <div className="outreach-header">
+            <div>
+              <p className="eyebrow">
+                <Mail size={16} />
+                Outreach kit
+              </p>
+              <h3>Recruit the first 20 meaningful-send pilots</h3>
+              <p>
+                Track personal pilot asks locally, copy a privacy-safe invite,
+                and move each target from candidate to credible use.
+              </p>
+            </div>
+            <div className="outreach-metrics" aria-label="Pilot outreach metrics">
+              <span>
+                <strong>{outreachContacts.length}</strong>
+                targets
+              </span>
+              <span>
+                <strong>{outreachMetrics.reached}</strong>
+                reached
+              </span>
+              <span>
+                <strong>{outreachMetrics.crediblePilots}</strong>
+                credible pilots
+              </span>
+              <span>
+                <strong>{outreachMetrics.remaining}</strong>
+                left to 20
+              </span>
+            </div>
+          </div>
+
+          <div className="outreach-grid">
+            <form
+              className="outreach-form"
+              onSubmit={(event) => {
+                event.preventDefault()
+                saveOutreachContact()
+              }}
+            >
+              <div className="field-row">
+                <label>
+                  Pilot target
+                  <input
+                    value={outreachForm.name}
+                    onChange={(event) =>
+                      setOutreachForm((current) => ({
+                        ...current,
+                        name: event.target.value,
+                      }))
+                    }
+                    placeholder="Jordan"
+                  />
+                </label>
+                <label>
+                  Channel
+                  <input
+                    value={outreachForm.channel}
+                    onChange={(event) =>
+                      setOutreachForm((current) => ({
+                        ...current,
+                        channel: event.target.value,
+                      }))
+                    }
+                    placeholder="DM, email, group chat"
+                  />
+                </label>
+              </div>
+
+              <label>
+                Broad relationship or cohort
+                <input
+                  value={outreachForm.relationship}
+                  onChange={(event) =>
+                    setOutreachForm((current) => ({
+                      ...current,
+                      relationship: event.target.value,
+                    }))
+                  }
+                  placeholder="new parent, mentor, caregiver, founder friend"
+                />
+              </label>
+
+              <label>
+                Likely meaningful-send moment
+                <textarea
+                  value={outreachForm.moment}
+                  onChange={(event) =>
+                    setOutreachForm((current) => ({
+                      ...current,
+                      moment: event.target.value,
+                    }))
+                  }
+                  placeholder="Someone they have been meaning to thank, repair with, encourage, or honor"
+                />
+              </label>
+
+              <div className="field-row">
+                <label>
+                  Status
+                  <select
+                    value={outreachForm.status}
+                    onChange={(event) =>
+                      setOutreachForm((current) => ({
+                        ...current,
+                        status: event.target.value as OutreachStatus,
+                      }))
+                    }
+                  >
+                    {(Object.keys(outreachStatuses) as OutreachStatus[]).map(
+                      (status) => (
+                        <option key={status} value={status}>
+                          {outreachStatuses[status].label}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </label>
+                <label>
+                  Private note
+                  <input
+                    value={outreachForm.notes}
+                    onChange={(event) =>
+                      setOutreachForm((current) => ({
+                        ...current,
+                        notes: event.target.value,
+                      }))
+                    }
+                    placeholder="Follow-up context kept local"
+                  />
+                </label>
+              </div>
+
+              <button
+                className="primary-button"
+                type="submit"
+                disabled={!outreachForm.name.trim()}
+              >
+                <Save size={17} />
+                Save target
+              </button>
+            </form>
+
+            <div className="outreach-list" aria-label="Pilot outreach targets">
+              {outreachContacts.length === 0 ? (
+                <p className="empty-state">
+                  No pilot targets yet. Add people who already have a real note
+                  to send this week.
+                </p>
+              ) : (
+                outreachContacts.map((contact) => (
+                  <article className="outreach-card" key={contact.id}>
+                    <div>
+                      <p className="eyebrow">
+                        {outreachStatuses[contact.status].label}
+                        {contact.channel ? ` - ${contact.channel}` : ''}
+                      </p>
+                      <h3>{contact.name}</h3>
+                      <p>
+                        {contact.moment ||
+                          contact.relationship ||
+                          outreachStatuses[contact.status].hint}
+                      </p>
+                      {contact.notes && <p>{contact.notes}</p>}
+                    </div>
+                    <div className="reply-options compact status-row">
+                      {(Object.keys(outreachStatuses) as OutreachStatus[]).map(
+                        (status) => (
+                          <button
+                            key={status}
+                            className={
+                              contact.status === status ? 'selected' : ''
+                            }
+                            type="button"
+                            onClick={() => updateOutreachStatus(contact.id, status)}
+                          >
+                            {outreachStatuses[status].label}
+                          </button>
+                        ),
+                      )}
+                    </div>
+                    <div className="note-actions">
+                      <button
+                        className="icon-button"
+                        type="button"
+                        onClick={() =>
+                          copyText(
+                            getOutreachInvite(contact),
+                            'Outreach invite copied',
+                          )
+                        }
+                      >
+                        <Copy size={16} />
+                        Invite
+                      </button>
+                      <button
+                        className="icon-button"
+                        type="button"
+                        onClick={() => deleteOutreachContact(contact.id)}
+                      >
+                        <Trash2 size={16} />
+                        Delete
+                      </button>
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
+          </div>
         </section>
 
         <section className="company-band" id="company">
@@ -3084,6 +3545,10 @@ function App() {
           </div>
 
           <div className="company-grid">
+            <article className="metric-card">
+              <span>{outreachContacts.length}</span>
+              <p>pilot targets</p>
+            </article>
             <article className="metric-card">
               <span>{savedNotes.length}</span>
               <p>keepsakes saved</p>
@@ -3117,6 +3582,13 @@ function App() {
             <article className="operating-card">
               <h3>North star</h3>
               <p>Meaningful sends per active user, weighted by sender feedback.</p>
+            </article>
+            <article className="operating-card">
+              <h3>Activation</h3>
+              <p>
+                Twenty personal pilot asks, tracked locally from invite to
+                credible use.
+              </p>
             </article>
             <article className="operating-card">
               <h3>Expansion</h3>

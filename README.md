@@ -31,11 +31,14 @@ The MVP is a browser app with no account, server, or API dependency.
 - Local People Book for saved recipient context
 - Local Moment Planner for recurring meaningful-send reminders
 - Local feedback capture from sender or recipient
-- Post-link value checks for delayed-send and paid-intent signals
+- Inline post-link Pilot Evidence form for delayed-send, outcome, trust, and
+  paid-intent signals
+- Local Outreach Kit for tracking the first 20 pilot targets and copying
+  privacy-safe personal invites
 - Copyable recipient feedback packets for no-backend pilots
 - Local paid-intent reservation capture
 - Public GitHub issue forms for pilot feedback and founding reservations
-- Company dashboard with early signal counts and data export
+- Company dashboard with early signal counts and privacy-aware data export
 
 ## Offer
 
@@ -85,14 +88,17 @@ The app captures local pilot signals:
 - saved people for repeated meaningful sends
 - planned reminders for recurring meaningful moments
 - post-link paid-value signals
-- post-link public-safe pilot handoffs
+- post-link public-safe pilot evidence handoffs
+- local outreach status for the first 20 pilot targets
 - keepsake finish preferences
 - protected-link trust signals
 - paid-intent reservations and why the product is worth paying for
 
 Export `keepsent-company-data.json` from the Company section to review early
-signals from the current device. Until a hosted backend exists, remote recipient
-feedback must be copied back to the sender or collected in interviews.
+signals from the current device. Outreach target names, channels, and notes stay
+local; the export includes aggregate outreach counts only. Until a hosted backend
+exists, remote recipient feedback must be copied back to the sender or collected
+in interviews.
 
 Public pilot intake lives in GitHub Issues:
 
@@ -138,7 +144,8 @@ npm run lint
 1. Put the MVP in front of 20 people with one real note to send this week.
 2. Ask whether it helped them say something they otherwise would not have said.
 3. Ask whether they would pay $7 for the finished keepsake page.
-4. Collect broad, non-private evidence through the public pilot issue forms.
+4. Use the post-link Pilot Evidence form to prepare broad, non-private evidence
+   before opening the public pilot issue form.
 5. Improve packs, reminders, and prompts only from repeated failure modes.
 6. Add Stripe Checkout for the $7 Keepsake plan after five credible paid-intent
    reservations.

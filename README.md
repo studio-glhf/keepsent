@@ -33,13 +33,15 @@ The MVP is a browser app with no account, server, or API dependency.
 - Local feedback capture from sender or recipient
 - Inline post-link Pilot Evidence form for delayed-send, outcome, trust, and
   paid-intent signals
+- Post-publish Trust Preflight before sharing or payment handoff
 - Local Outreach Kit for tracking the first 20 pilot targets and copying
   privacy-safe personal invites
 - Copyable recipient feedback packets for no-backend pilots
 - Local paid-intent reservation capture
 - Checkout-ready plan buttons when hosted payment links are configured
 - Public GitHub issue forms for pilot feedback and founding reservations
-- Company dashboard with early signal counts and privacy-aware data export
+- Company dashboard with early signal counts, trust receipts, local data export,
+  and local data clearing
 
 ## Offer
 
@@ -89,6 +91,7 @@ moments where people want to be specific, private, and brave.
 - Protected links for sensitive notes
 - No public gallery of intimate notes
 - No training on private notes without explicit consent
+- User-visible local data controls
 - Specificity over polish
 - Meaningful sends over drafts created
 - Sustainable revenue from value delivered, not addiction loops
@@ -111,11 +114,14 @@ The app captures local pilot signals:
 - keepsake finish preferences
 - protected-link trust signals
 - checkout-link readiness and payment handoff mode
+- trust receipt copies, local data export, and local data clearing readiness
+- post-publish trust preflight before users share or pay
 - paid-intent reservations and why the product is worth paying for
 
-Export `keepsent-company-data.json` from the Company section to review early
-signals from the current device. Outreach target names, channels, and notes stay
-local; the export includes aggregate outreach counts only. Until a hosted backend
+Use the Trust & Data console in the Company section to copy a plain-language
+trust receipt, export `keepsent-company-data.json`, or clear Keepsent local data
+from the current browser. Outreach target names, channels, and notes stay local;
+the export includes aggregate outreach counts only. Until a hosted backend
 exists, remote recipient feedback must be copied back to the sender or collected
 in interviews.
 

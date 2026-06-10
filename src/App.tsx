@@ -1391,6 +1391,7 @@ function App() {
     paidValue: 'maybe',
     trustGap: '',
   })
+  const [clearLocalDataArmed, setClearLocalDataArmed] = useState(false)
   const [showReservationPrompt, setShowReservationPrompt] = useState(false)
   const [securePassphrase, setSecurePassphrase] = useState('')
   const [secureShareUrl, setSecureShareUrl] = useState('')
@@ -1450,6 +1451,70 @@ function App() {
         ? getCheckoutUrl(selectedPlan, `note-${publishedNote.id}`)
         : '',
     [publishedNote, selectedPlan],
+  )
+  const hasDraftData = Boolean(
+    draft.trim() ||
+      form.recipient.trim() ||
+      form.sender.trim() ||
+      form.relationship.trim() ||
+      form.moment.trim() ||
+      form.qualities.trim() ||
+      form.impact.trim() ||
+      form.hope.trim() ||
+      form.boundary.trim() ||
+      form.deliveryDate.trim(),
+  )
+  const localDataSummary = useMemo(
+    () => [
+      {
+        label: 'Studio draft',
+        count: hasDraftData ? 1 : 0,
+        detail: 'Current form fields and editable draft',
+      },
+      {
+        label: 'Keepsakes',
+        count: savedNotes.length,
+        detail: 'Saved local note pages and link payloads',
+      },
+      {
+        label: 'Feedback',
+        count: feedback.length,
+        detail: 'Sender, recipient, and pilot evidence signals',
+      },
+      {
+        label: 'Reservations',
+        count: reservations.length,
+        detail: 'Local paid-intent records',
+      },
+      {
+        label: 'People',
+        count: profiles.length,
+        detail: 'Recipient context saved in this browser',
+      },
+      {
+        label: 'Planner',
+        count: reminders.length,
+        detail: 'Local meaningful-send reminders',
+      },
+      {
+        label: 'Outreach',
+        count: outreachContacts.length,
+        detail: 'Pilot target names and channels kept out of export',
+      },
+    ],
+    [
+      feedback.length,
+      hasDraftData,
+      outreachContacts.length,
+      profiles.length,
+      reminders.length,
+      reservations.length,
+      savedNotes.length,
+    ],
+  )
+  const localDataRecordCount = localDataSummary.reduce(
+    (total, item) => total + item.count,
+    0,
   )
 
   useEffect(() => {
@@ -1933,6 +1998,8 @@ function App() {
       'keepsent-company-data.json',
       JSON.stringify(
         {
+          exportedAt: new Date().toISOString(),
+          localDataSummary,
           savedNotes,
           feedback,
           reservations,
@@ -1944,6 +2011,77 @@ function App() {
         2,
       ),
     )
+  }
+
+  function getTrustReceipt() {
+    return [
+      'Keepsent trust receipt',
+      '',
+      'Storage: browser local storage on this device. No account, backend, or model API is required for the current MVP.',
+      'Simple share links: note content is encoded in the URL, so anyone with the URL can read it.',
+      'Protected share links: note content is encrypted in the URL with a passphrase before sharing. Keepsent cannot recover the passphrase.',
+      'Public feedback: do not paste note text, share links, names, contact details, or sensitive facts into GitHub issues.',
+      'Checkout: hosted payment links can be configured, but checkout metadata must not include private note content or recipient identity.',
+      '',
+      `This browser currently has ${localDataRecordCount} Keepsent local record${localDataRecordCount === 1 ? '' : 's'} across:`,
+      ...localDataSummary.map(
+        (item) => `- ${item.label}: ${item.count} (${item.detail})`,
+      ),
+      '',
+      'Controls: export a local snapshot, copy this receipt, or clear Keepsent local data from the Company section.',
+    ].join('\n')
+  }
+
+  function clearLocalData() {
+    Object.values(storageKeys).forEach((key) => {
+      window.localStorage.removeItem(key)
+    })
+    setForm(defaultForm)
+    setDraft('')
+    setFinish(defaultFinish)
+    setSavedNotes([])
+    setFeedback([])
+    setReservations([])
+    setReminders([])
+    setProfiles([])
+    setOutreachContacts([])
+    setPublishedNote(null)
+    setSecurePassphrase('')
+    setSecureShareUrl('')
+    setReservationForm({ name: '', email: '', why: '' })
+    setReminderForm({
+      recipient: '',
+      relationship: '',
+      occasion: 'tribute',
+      date: '',
+      cadence: 'yearly',
+      note: '',
+    })
+    setProfileForm({
+      name: '',
+      relationship: '',
+      language: 'en',
+      tone: 'plain',
+      qualities: '',
+      notes: '',
+    })
+    setOutreachForm({
+      name: '',
+      channel: '',
+      relationship: '',
+      moment: '',
+      status: 'candidate',
+      notes: '',
+    })
+    setPilotEvidenceForm({
+      outcome: 'sent',
+      delayed: 'yes',
+      paidValue: 'maybe',
+      trustGap: '',
+    })
+    setClearLocalDataArmed(false)
+    setShowReservationPrompt(false)
+    setToast('Keepsent local data cleared')
   }
 
   function clearSharedNote() {
@@ -2528,14 +2666,6 @@ function App() {
                     <strong>Private keepsake ready</strong>
                     <button
                       type="button"
-                      onClick={() =>
-                        copyText(getShareUrl(publishedNote), 'Share link copied')
-                      }
-                    >
-                      Copy share link
-                    </button>
-                    <button
-                      type="button"
                       onClick={() => {
                         setProtectedSourceUrl('')
                         setSharedNote(publishedNote)
@@ -2549,10 +2679,43 @@ function App() {
                       Never paste either link into public feedback.
                     </p>
 
+                    <div className="trust-preflight">
+                      <p className="eyebrow">
+                        <ShieldCheck size={14} />
+                        Trust preflight
+                      </p>
+                      <p>
+                        This browser has {localDataRecordCount} Keepsent local
+                        records. Use a protected link for sensitive notes, keep
+                        the passphrase separate, and export only as a private
+                        archive.
+                      </p>
+                      <div className="button-row">
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={() =>
+                            copyText(getTrustReceipt(), 'Trust receipt copied')
+                          }
+                        >
+                          <Copy size={16} />
+                          Copy receipt
+                        </button>
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={exportCompanyData}
+                        >
+                          <Download size={16} />
+                          Export archive
+                        </button>
+                      </div>
+                    </div>
+
                     <div className="secure-link-panel">
                       <p className="eyebrow">
                         <LockKeyhole size={14} />
-                        Protected link
+                        Protected link recommended
                       </p>
                       <label>
                         Passphrase
@@ -2595,7 +2758,16 @@ function App() {
                         Share the passphrase separately. Keepsent cannot recover
                         it.
                       </p>
-                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        copyText(getShareUrl(publishedNote), 'Simple link copied')
+                      }
+                    >
+                      Copy simple link
+                    </button>
 
                     <div className="pilot-handoff">
                       <p className="eyebrow">
@@ -3818,11 +3990,88 @@ function App() {
             </ul>
           </div>
 
+          <div className="trust-console">
+            <div className="trust-console-copy">
+              <p className="eyebrow">
+                <ShieldCheck size={16} />
+                Trust & data
+              </p>
+              <h3>Local data console</h3>
+              <p>
+                Keepsent stores the current MVP in this browser. These controls
+                make that visible before someone trusts the product with private
+                words or payment intent.
+              </p>
+              <p className="trust-note">
+                Outreach target names and channels stay local and are excluded
+                from the company data export.
+              </p>
+            </div>
+
+            <div className="data-receipt-grid" aria-label="Local data receipt">
+              {localDataSummary.map((item) => (
+                <article className="data-receipt-card" key={item.label}>
+                  <span>{item.count}</span>
+                  <strong>{item.label}</strong>
+                  <p>{item.detail}</p>
+                </article>
+              ))}
+            </div>
+
+            <div className="trust-control-panel">
+              <div>
+                <p className="eyebrow">Controls</p>
+                <h3>{localDataRecordCount} local records in this browser</h3>
+                <p>
+                  Export before clearing if these notes, reminders, people, or
+                  pilot signals still matter.
+                </p>
+              </div>
+              <div className="trust-actions">
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={exportCompanyData}
+                >
+                  <Download size={17} />
+                  Export data
+                </button>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() =>
+                    copyText(getTrustReceipt(), 'Trust receipt copied')
+                  }
+                >
+                  <Copy size={17} />
+                  Copy receipt
+                </button>
+              </div>
+              <label className="clear-confirm">
+                <input
+                  type="checkbox"
+                  checked={clearLocalDataArmed}
+                  onChange={(event) =>
+                    setClearLocalDataArmed(event.target.checked)
+                  }
+                />
+                I understand this clears Keepsent notes, people, reminders,
+                feedback, reservations, outreach targets, and the current draft
+                from this browser.
+              </label>
+              <button
+                className="danger-button"
+                type="button"
+                disabled={!clearLocalDataArmed}
+                onClick={clearLocalData}
+              >
+                <Trash2 size={17} />
+                Clear local data
+              </button>
+            </div>
+          </div>
+
           <div className="button-row">
-            <button className="secondary-button" type="button" onClick={exportCompanyData}>
-              <Download size={17} />
-              Export data
-            </button>
             <button
               className="secondary-button"
               type="button"

@@ -37,6 +37,7 @@ The MVP is a browser app with no account, server, or API dependency.
   privacy-safe personal invites
 - Copyable recipient feedback packets for no-backend pilots
 - Local paid-intent reservation capture
+- Checkout-ready plan buttons when hosted payment links are configured
 - Public GitHub issue forms for pilot feedback and founding reservations
 - Company dashboard with early signal counts and privacy-aware data export
 
@@ -46,8 +47,25 @@ The MVP is a browser app with no account, server, or API dependency.
 - Year: $29/year for unlimited notes, saved recipients, and reminders
 - Family: $79/year for shared family vaults and contributor prompts
 
-Stripe Checkout should be the first real payment integration after the local MVP
-shows willingness to pay.
+Hosted payment links should be the first real payment integration after the
+local MVP shows willingness to pay. Keepsent already supports checkout-link
+configuration while remaining honest in reservation mode when links are absent.
+
+## Checkout Configuration
+
+Create hosted payment links for the paid offers, then set Vite environment
+variables before building:
+
+```bash
+VITE_KEEPSENT_CHECKOUT_KEEPSAKE=https://buy.stripe.com/...
+VITE_KEEPSENT_CHECKOUT_YEAR=https://buy.stripe.com/...
+VITE_KEEPSENT_CHECKOUT_FAMILY=https://buy.stripe.com/...
+```
+
+Only HTTPS links render as active checkout buttons. Keepsent appends a
+non-private `client_reference_id` plus UTM parameters for reconciliation. Do not
+put private note text, share links, recipient names, or contact details into
+checkout metadata.
 
 ## Market Signals
 
@@ -92,6 +110,7 @@ The app captures local pilot signals:
 - local outreach status for the first 20 pilot targets
 - keepsake finish preferences
 - protected-link trust signals
+- checkout-link readiness and payment handoff mode
 - paid-intent reservations and why the product is worth paying for
 
 Export `keepsent-company-data.json` from the Company section to review early
@@ -147,8 +166,8 @@ npm run lint
 4. Use the post-link Pilot Evidence form to prepare broad, non-private evidence
    before opening the public pilot issue form.
 5. Improve packs, reminders, and prompts only from repeated failure modes.
-6. Add Stripe Checkout for the $7 Keepsake plan after five credible paid-intent
-   reservations.
+6. Configure the $7 Keepsake payment link after five credible paid-intent
+   reservations, then expand checkout links plan by plan.
 7. Add hosted accounts only after local share links and exports prove useful.
 8. Expand language quality, caregiver packs, and family memory packs once trust
    is earned.

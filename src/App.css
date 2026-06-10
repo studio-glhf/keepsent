@@ -788,6 +788,56 @@ select:focus {
   color: var(--sage-dark);
 }
 
+.plan-actions,
+.checkout-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.checkout-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 28px;
+  margin: 4px 0 0;
+  padding: 0 9px;
+  border: 1px solid color-mix(in srgb, var(--gold) 42%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--gold) 13%, white);
+  color: #604715;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.checkout-badge.checkout-ready {
+  border-color: color-mix(in srgb, var(--sage) 42%, var(--line));
+  background: color-mix(in srgb, var(--sage) 12%, white);
+  color: var(--sage-dark);
+}
+
+.checkout-panel {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--sage) 28%, var(--line));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--sage) 8%, white);
+}
+
+.checkout-panel h3 {
+  margin: 6px 0 8px;
+  color: var(--ink);
+  font-size: 1.18rem;
+}
+
+.checkout-panel p:not(.eyebrow) {
+  color: var(--muted);
+}
+
 .reservation-panel {
   display: grid;
   grid-template-columns: minmax(240px, 0.85fr) 1fr 1fr;
@@ -1134,6 +1184,7 @@ select:focus {
   .planner-grid,
   .outreach-header,
   .outreach-grid,
+  .checkout-panel,
   .reservation-panel,
   .source-panel,
   .pilot-actions,

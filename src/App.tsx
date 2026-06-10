@@ -32,6 +32,7 @@ type LanguageKey = 'en' | 'es' | 'ko' | 'ja'
 type CadenceKey = 'once' | 'yearly' | 'monthly'
 type FinishKey = 'letter' | 'card' | 'tribute'
 type OutreachStatus = 'candidate' | 'invited' | 'trying' | 'used' | 'reserved'
+type PlanName = 'Keepsake' | 'Year' | 'Family'
 
 type KeepsakeFinish = {
   style: FinishKey
@@ -81,7 +82,7 @@ type Feedback = {
 type Reservation = {
   id: string
   createdAt: string
-  plan: string
+  plan: PlanName
   name: string
   email: string
   why: string
@@ -280,7 +281,25 @@ const plans = [
     audience: 'For families preserving stories together.',
     features: ['Shared vault', 'Contributor prompts', 'Family occasions'],
   },
-]
+] satisfies Array<{
+  name: PlanName
+  price: string
+  cadence: string
+  audience: string
+  features: string[]
+}>
+
+const checkoutEnvKeys: Record<PlanName, string> = {
+  Keepsake: 'VITE_KEEPSENT_CHECKOUT_KEEPSAKE',
+  Year: 'VITE_KEEPSENT_CHECKOUT_YEAR',
+  Family: 'VITE_KEEPSENT_CHECKOUT_FAMILY',
+}
+
+const checkoutLinks: Record<PlanName, string> = {
+  Keepsake: String(import.meta.env.VITE_KEEPSENT_CHECKOUT_KEEPSAKE || ''),
+  Year: String(import.meta.env.VITE_KEEPSENT_CHECKOUT_YEAR || ''),
+  Family: String(import.meta.env.VITE_KEEPSENT_CHECKOUT_FAMILY || ''),
+}
 
 const momentPacks: MomentPack[] = [
   {
@@ -425,6 +444,46 @@ function getProductUrl() {
   return `${window.location.origin}${window.location.pathname}`
 }
 
+function getConfiguredCheckoutBase(planName: PlanName) {
+  const value = checkoutLinks[planName].trim()
+  if (!value) return ''
+
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' ? url.toString() : ''
+  } catch {
+    return ''
+  }
+}
+
+function getCheckoutUrl(planName: PlanName, reference: string) {
+  const base = getConfiguredCheckoutBase(planName)
+  if (!base) return ''
+
+  const url = new URL(base)
+  url.searchParams.set('client_reference_id', reference)
+  url.searchParams.set('utm_source', 'keepsent')
+  url.searchParams.set('utm_medium', 'web')
+  url.searchParams.set('utm_campaign', 'founding_checkout')
+  url.searchParams.set('utm_content', planName.toLowerCase())
+  return url.toString()
+}
+
+function getCheckoutSetupNote() {
+  return [
+    'Keepsent checkout setup',
+    '',
+    'Create Stripe Payment Links for each paid offer, then set these Vite environment variables before build:',
+    `${checkoutEnvKeys.Keepsake}=https://buy.stripe.com/...`,
+    `${checkoutEnvKeys.Year}=https://buy.stripe.com/...`,
+    `${checkoutEnvKeys.Family}=https://buy.stripe.com/...`,
+    '',
+    'Keepsent appends client_reference_id plus UTM parameters for non-private reconciliation. Do not put private note text, share links, or recipient names in checkout metadata.',
+    '',
+    'Official Stripe Payment Links docs: https://docs.stripe.com/payment-links',
+  ].join('\n')
+}
+
 function getOutreachInvite(contact: OutreachContact) {
   const greeting = contact.name.trim() ? `Hi ${contact.name.trim()},` : 'Hi,'
   const momentLine = contact.moment.trim()
@@ -500,6 +559,10 @@ function isTone(value: unknown): value is ToneKey {
 
 function isLanguage(value: unknown): value is LanguageKey {
   return typeof value === 'string' && value in languages
+}
+
+function isPlanName(value: unknown): value is PlanName {
+  return typeof value === 'string' && plans.some((plan) => plan.name === value)
 }
 
 function isFinish(value: unknown): value is FinishKey {
@@ -585,7 +648,7 @@ function validateReservation(value: unknown): Reservation | null {
   return {
     id,
     createdAt,
-    plan,
+    plan: isPlanName(plan) ? plan : plans[0].name,
     name: asString(value.name),
     email,
     why: asString(value.why),
@@ -1290,7 +1353,7 @@ function App() {
     null,
   )
   const [toast, setToast] = useState('')
-  const [selectedPlan, setSelectedPlan] = useState(plans[0].name)
+  const [selectedPlan, setSelectedPlan] = useState<PlanName>(plans[0].name)
   const [reservationForm, setReservationForm] = useState({
     name: '',
     email: '',
@@ -1373,6 +1436,21 @@ function App() {
       remaining: Math.max(0, target - outreachContacts.length),
     }
   }, [outreachContacts])
+  const configuredCheckoutPlans = useMemo(
+    () => plans.filter((plan) => getConfiguredCheckoutBase(plan.name)).length,
+    [],
+  )
+  const selectedCheckoutUrl = useMemo(
+    () => getCheckoutUrl(selectedPlan, `pricing-${selectedPlan.toLowerCase()}`),
+    [selectedPlan],
+  )
+  const publishedCheckoutUrl = useMemo(
+    () =>
+      publishedNote
+        ? getCheckoutUrl(selectedPlan, `note-${publishedNote.id}`)
+        : '',
+    [publishedNote, selectedPlan],
+  )
 
   useEffect(() => {
     writeStorage(storageKeys.form, form)
@@ -1568,11 +1646,16 @@ function App() {
   }
 
   function getReservationSummary(note: PublishedNote) {
+    const checkoutConfigured = Boolean(
+      getCheckoutUrl(selectedPlan, `note-${note.id}`),
+    )
+
     return [
       'Keepsent public-safe paid-intent summary',
       `Moment type: ${occasions[note.occasion].label}`,
       `Draft language: ${languages[note.language].label}`,
       `Selected plan: ${selectedPlan}`,
+      `Checkout mode: ${checkoutConfigured ? 'checkout link configured' : 'reservation only'}`,
       'Private note text, names, share links, and contact details intentionally omitted.',
       'Worth paying because: [replace with a broad, non-private reason]',
     ].join('\n')
@@ -2651,7 +2734,9 @@ function App() {
                       <div className="reservation-nudge">
                         <p>
                           If that value is real, copy a public-safe summary and
-                          open the founding reservation form.
+                          {publishedCheckoutUrl
+                            ? ' continue to checkout.'
+                            : ' open the founding reservation form.'}
                         </p>
                         <div className="button-row">
                           <button
@@ -2667,15 +2752,27 @@ function App() {
                             <Copy size={16} />
                             Copy summary
                           </button>
-                          <a
-                            className="secondary-button"
-                            href={foundingReservationUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            <ExternalLink size={16} />
-                            Open form
-                          </a>
+                          {publishedCheckoutUrl ? (
+                            <a
+                              className="primary-button"
+                              href={publishedCheckoutUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              <CreditCard size={16} />
+                              Open checkout
+                            </a>
+                          ) : (
+                            <a
+                              className="secondary-button"
+                              href={foundingReservationUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              <ExternalLink size={16} />
+                              Open form
+                            </a>
+                          )}
                         </div>
                       </div>
                     )}
@@ -3138,35 +3235,132 @@ function App() {
             </p>
           </div>
           <div className="pricing-grid">
-            {plans.map((plan) => (
-              <article
-                className={selectedPlan === plan.name ? 'plan-card selected' : 'plan-card'}
-                key={plan.name}
-              >
-                <div className="plan-topline">
-                  <h3>{plan.name}</h3>
-                  <span>{plan.price}</span>
-                </div>
-                <p>{plan.cadence}</p>
-                <p>{plan.audience}</p>
-                <ul>
-                  {plan.features.map((feature) => (
-                    <li key={feature}>
-                      <CheckCircle2 size={16} />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  className="icon-button"
-                  type="button"
-                  onClick={() => setSelectedPlan(plan.name)}
+            {plans.map((plan) => {
+              const checkoutUrl = getCheckoutUrl(
+                plan.name,
+                `pricing-${plan.name.toLowerCase()}`,
+              )
+              const checkoutReady = Boolean(checkoutUrl)
+
+              return (
+                <article
+                  className={
+                    selectedPlan === plan.name ? 'plan-card selected' : 'plan-card'
+                  }
+                  key={plan.name}
+                >
+                  <div className="plan-topline">
+                    <h3>{plan.name}</h3>
+                    <span>{plan.price}</span>
+                  </div>
+                  <p>{plan.cadence}</p>
+                  <p>{plan.audience}</p>
+                  <p
+                    className={
+                      checkoutReady
+                        ? 'checkout-badge checkout-ready'
+                        : 'checkout-badge'
+                    }
+                  >
+                    {checkoutReady ? 'Checkout ready' : 'Reservation mode'}
+                  </p>
+                  <ul>
+                    {plan.features.map((feature) => (
+                      <li key={feature}>
+                        <CheckCircle2 size={16} />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="plan-actions">
+                    <button
+                      className="icon-button"
+                      type="button"
+                      onClick={() => setSelectedPlan(plan.name)}
+                    >
+                      <CreditCard size={17} />
+                      Select
+                    </button>
+                    {checkoutReady ? (
+                      <a
+                        className="primary-button"
+                        href={checkoutUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <ExternalLink size={17} />
+                        Checkout
+                      </a>
+                    ) : (
+                      <a
+                        className="secondary-button"
+                        href={foundingReservationUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <ExternalLink size={17} />
+                        Reserve
+                      </a>
+                    )}
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+
+          <div className="checkout-panel">
+            <div>
+              <p className="eyebrow">
+                <ShieldCheck size={16} />
+                Checkout path
+              </p>
+              <h3>
+                {configuredCheckoutPlans > 0
+                  ? `${configuredCheckoutPlans} plan checkout ${
+                      configuredCheckoutPlans === 1 ? 'link is' : 'links are'
+                    } configured`
+                  : 'Reservation mode until checkout links are configured'}
+              </h3>
+              <p>
+                Keepsent can route paid users to hosted checkout links and append
+                non-private reference parameters for reconciliation. Without
+                configured links, the product collects founding reservations
+                instead of pretending payment is live.
+              </p>
+            </div>
+            <div className="checkout-actions">
+              {selectedCheckoutUrl ? (
+                <a
+                  className="primary-button"
+                  href={selectedCheckoutUrl}
+                  target="_blank"
+                  rel="noreferrer"
                 >
                   <CreditCard size={17} />
-                  Select
-                </button>
-              </article>
-            ))}
+                  Open {selectedPlan} checkout
+                </a>
+              ) : (
+                <a
+                  className="primary-button"
+                  href={foundingReservationUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <ExternalLink size={17} />
+                  Reserve {selectedPlan}
+                </a>
+              )}
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() =>
+                  copyText(getCheckoutSetupNote(), 'Checkout setup copied')
+                }
+              >
+                <Copy size={17} />
+                Copy setup
+              </button>
+            </div>
           </div>
 
           <div className="reservation-panel">
